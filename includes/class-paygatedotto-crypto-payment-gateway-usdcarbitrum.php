@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Usdcarbitrum extends WC_Payment_Gatewa
 
 protected $usdcarbitrum_wallet_address;
 protected $usdcarbitrum_blockchain_fees;
+protected $usdcarbitrum_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->usdcarbitrum_wallet_address = sanitize_text_field($this->get_option('usdcarbitrum_wallet_address'));
+		$this->usdcarbitrum_tolerance_percentage = sanitize_text_field($this->get_option('usdcarbitrum_tolerance_percentage'));
 		$this->usdcarbitrum_blockchain_fees = $this->get_option('usdcarbitrum_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your arbitrum/usdc wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'usdcarbitrum_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'usdcarbitrum_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_usdcarbitrum_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_usdcarbitrum_total = $order->get_total();
 		$paygatedottocryptogateway_usdcarbitrum_nonce = wp_create_nonce( 'paygatedottocryptogateway_usdcarbitrum_nonce_' . $order_id );
+		$paygatedottocryptogateway_usdcarbitrum_tolerance_percentage = $this->usdcarbitrum_tolerance_percentage;
 		$paygatedottocryptogateway_usdcarbitrum_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_usdcarbitrum_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-usdcarbitrum/'));
 		$paygatedottocryptogateway_usdcarbitrum_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_usdcarbitrum_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_usdcarbitrum_status_nonce_' . $paygatedottocryptogateway_usdcarbitrum_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_usdcarbitrum_genqrcode_conversion_resp && isset($
     $order->add_meta_data('paygatedotto_usdcarbitrum_ipntoken', $paygatedottocryptogateway_usdcarbitrum_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_usdcarbitrum_callback', $paygatedottocryptogateway_usdcarbitrum_gen_callback, true);
 	$order->add_meta_data('paygatedotto_usdcarbitrum_payin_amount', $paygatedottocryptogateway_usdcarbitrum_payin_total, true);
+	$order->add_meta_data('paygatedotto_usdcarbitrum_tolerance_percentage', $paygatedottocryptogateway_usdcarbitrum_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_usdcarbitrum_qrcode', $paygatedottocryptogateway_usdcarbitrum_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_usdcarbitrum_nonce', $paygatedottocryptogateway_usdcarbitrum_nonce, true);
 	$order->add_meta_data('paygatedotto_usdcarbitrum_status_nonce', $paygatedottocryptogateway_usdcarbitrum_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_usdcarbitrum_change_order_status_callback( $r
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-usdcarbitrum' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_usdcarbitrumexpected_amount = $order->get_meta('paygatedotto_usdcarbitrum_payin_amount', true);
+	$paygatedottocryptogateway_usdcarbitrumexpected_amount = $order->get_meta('paygatedotto_usdcarbitrum_payin_amount', true) * $order->get_meta('paygatedotto_usdcarbitrum_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_usdcarbitrumpaid_value_coin < $paygatedottocryptogateway_usdcarbitrumexpected_amount || $paygatedottocryptogateway_usdcarbitrum_paid_coin_name !== 'arbitrum_usdc') {

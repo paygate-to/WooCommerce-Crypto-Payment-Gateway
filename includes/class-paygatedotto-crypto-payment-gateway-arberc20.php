@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Arberc20 extends WC_Payment_Gateway {
 
 protected $arberc20_wallet_address;
 protected $arberc20_blockchain_fees;
+protected $arberc20_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->arberc20_wallet_address = sanitize_text_field($this->get_option('arberc20_wallet_address'));
+		$this->arberc20_tolerance_percentage = sanitize_text_field($this->get_option('arberc20_tolerance_percentage'));
 		$this->arberc20_blockchain_fees = $this->get_option('arberc20_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your erc20/arb wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'arberc20_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'arberc20_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_arberc20_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_arberc20_total = $order->get_total();
 		$paygatedottocryptogateway_arberc20_nonce = wp_create_nonce( 'paygatedottocryptogateway_arberc20_nonce_' . $order_id );
+		$paygatedottocryptogateway_arberc20_tolerance_percentage = $this->arberc20_tolerance_percentage;
 		$paygatedottocryptogateway_arberc20_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_arberc20_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-arberc20/'));
 		$paygatedottocryptogateway_arberc20_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_arberc20_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_arberc20_status_nonce_' . $paygatedottocryptogateway_arberc20_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_arberc20_genqrcode_conversion_resp && isset($payg
     $order->add_meta_data('paygatedotto_arberc20_ipntoken', $paygatedottocryptogateway_arberc20_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_arberc20_callback', $paygatedottocryptogateway_arberc20_gen_callback, true);
 	$order->add_meta_data('paygatedotto_arberc20_payin_amount', $paygatedottocryptogateway_arberc20_payin_total, true);
+	$order->add_meta_data('paygatedotto_arberc20_tolerance_percentage', $paygatedottocryptogateway_arberc20_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_arberc20_qrcode', $paygatedottocryptogateway_arberc20_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_arberc20_nonce', $paygatedottocryptogateway_arberc20_nonce, true);
 	$order->add_meta_data('paygatedotto_arberc20_status_nonce', $paygatedottocryptogateway_arberc20_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_arberc20_change_order_status_callback( $reque
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-arberc20' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_arberc20expected_amount = $order->get_meta('paygatedotto_arberc20_payin_amount', true);
+	$paygatedottocryptogateway_arberc20expected_amount = $order->get_meta('paygatedotto_arberc20_payin_amount', true) * $order->get_meta('paygatedotto_arberc20_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_arberc20paid_value_coin < $paygatedottocryptogateway_arberc20expected_amount || $paygatedottocryptogateway_arberc20_paid_coin_name !== 'erc20_arb') {

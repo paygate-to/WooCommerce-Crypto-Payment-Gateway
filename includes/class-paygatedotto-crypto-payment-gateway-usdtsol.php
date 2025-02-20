@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Usdtsol extends WC_Payment_Gateway {
 
 protected $usdtsol_wallet_address;
 protected $usdtsol_blockchain_fees;
+protected $usdtsol_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->usdtsol_wallet_address = sanitize_text_field($this->get_option('usdtsol_wallet_address'));
+		$this->usdtsol_tolerance_percentage = sanitize_text_field($this->get_option('usdtsol_tolerance_percentage'));
 		$this->usdtsol_blockchain_fees = $this->get_option('usdtsol_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your sol/usdt wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'usdtsol_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'usdtsol_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_usdtsol_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_usdtsol_total = $order->get_total();
 		$paygatedottocryptogateway_usdtsol_nonce = wp_create_nonce( 'paygatedottocryptogateway_usdtsol_nonce_' . $order_id );
+		$paygatedottocryptogateway_usdtsol_tolerance_percentage = $this->usdtsol_tolerance_percentage;
 		$paygatedottocryptogateway_usdtsol_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_usdtsol_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-usdtsol/'));
 		$paygatedottocryptogateway_usdtsol_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_usdtsol_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_usdtsol_status_nonce_' . $paygatedottocryptogateway_usdtsol_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_usdtsol_genqrcode_conversion_resp && isset($payga
     $order->add_meta_data('paygatedotto_usdtsol_ipntoken', $paygatedottocryptogateway_usdtsol_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_usdtsol_callback', $paygatedottocryptogateway_usdtsol_gen_callback, true);
 	$order->add_meta_data('paygatedotto_usdtsol_payin_amount', $paygatedottocryptogateway_usdtsol_payin_total, true);
+	$order->add_meta_data('paygatedotto_usdtsol_tolerance_percentage', $paygatedottocryptogateway_usdtsol_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_usdtsol_qrcode', $paygatedottocryptogateway_usdtsol_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_usdtsol_nonce', $paygatedottocryptogateway_usdtsol_nonce, true);
 	$order->add_meta_data('paygatedotto_usdtsol_status_nonce', $paygatedottocryptogateway_usdtsol_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_usdtsol_change_order_status_callback( $reques
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-usdtsol' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_usdtsolexpected_amount = $order->get_meta('paygatedotto_usdtsol_payin_amount', true);
+	$paygatedottocryptogateway_usdtsolexpected_amount = $order->get_meta('paygatedotto_usdtsol_payin_amount', true) * $order->get_meta('paygatedotto_usdtsol_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_usdtsolpaid_value_coin < $paygatedottocryptogateway_usdtsolexpected_amount || $paygatedottocryptogateway_usdtsol_paid_coin_name !== 'sol_usdt') {

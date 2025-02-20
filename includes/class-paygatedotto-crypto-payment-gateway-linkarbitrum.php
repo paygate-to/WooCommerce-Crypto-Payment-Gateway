@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Linkarbitrum extends WC_Payment_Gatewa
 
 protected $linkarbitrum_wallet_address;
 protected $linkarbitrum_blockchain_fees;
+protected $linkarbitrum_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->linkarbitrum_wallet_address = sanitize_text_field($this->get_option('linkarbitrum_wallet_address'));
+		$this->linkarbitrum_tolerance_percentage = sanitize_text_field($this->get_option('linkarbitrum_tolerance_percentage'));
 		$this->linkarbitrum_blockchain_fees = $this->get_option('linkarbitrum_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your arbitrum/link wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'linkarbitrum_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'linkarbitrum_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_linkarbitrum_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_linkarbitrum_total = $order->get_total();
 		$paygatedottocryptogateway_linkarbitrum_nonce = wp_create_nonce( 'paygatedottocryptogateway_linkarbitrum_nonce_' . $order_id );
+		$paygatedottocryptogateway_linkarbitrum_tolerance_percentage = $this->linkarbitrum_tolerance_percentage;
 		$paygatedottocryptogateway_linkarbitrum_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_linkarbitrum_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-linkarbitrum/'));
 		$paygatedottocryptogateway_linkarbitrum_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_linkarbitrum_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_linkarbitrum_status_nonce_' . $paygatedottocryptogateway_linkarbitrum_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_linkarbitrum_genqrcode_conversion_resp && isset($
     $order->add_meta_data('paygatedotto_linkarbitrum_ipntoken', $paygatedottocryptogateway_linkarbitrum_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_linkarbitrum_callback', $paygatedottocryptogateway_linkarbitrum_gen_callback, true);
 	$order->add_meta_data('paygatedotto_linkarbitrum_payin_amount', $paygatedottocryptogateway_linkarbitrum_payin_total, true);
+	$order->add_meta_data('paygatedotto_linkarbitrum_tolerance_percentage', $paygatedottocryptogateway_linkarbitrum_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_linkarbitrum_qrcode', $paygatedottocryptogateway_linkarbitrum_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_linkarbitrum_nonce', $paygatedottocryptogateway_linkarbitrum_nonce, true);
 	$order->add_meta_data('paygatedotto_linkarbitrum_status_nonce', $paygatedottocryptogateway_linkarbitrum_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_linkarbitrum_change_order_status_callback( $r
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-linkarbitrum' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_linkarbitrumexpected_amount = $order->get_meta('paygatedotto_linkarbitrum_payin_amount', true);
+	$paygatedottocryptogateway_linkarbitrumexpected_amount = $order->get_meta('paygatedotto_linkarbitrum_payin_amount', true) * $order->get_meta('paygatedotto_linkarbitrum_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_linkarbitrumpaid_value_coin < $paygatedottocryptogateway_linkarbitrumexpected_amount || $paygatedottocryptogateway_linkarbitrum_paid_coin_name !== 'arbitrum_link') {

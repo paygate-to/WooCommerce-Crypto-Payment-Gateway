@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Eurcbase extends WC_Payment_Gateway {
 
 protected $eurcbase_wallet_address;
 protected $eurcbase_blockchain_fees;
+protected $eurcbase_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->eurcbase_wallet_address = sanitize_text_field($this->get_option('eurcbase_wallet_address'));
+		$this->eurcbase_tolerance_percentage = sanitize_text_field($this->get_option('eurcbase_tolerance_percentage'));
 		$this->eurcbase_blockchain_fees = $this->get_option('eurcbase_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your base/eurc wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'eurcbase_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'eurcbase_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_eurcbase_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_eurcbase_total = $order->get_total();
 		$paygatedottocryptogateway_eurcbase_nonce = wp_create_nonce( 'paygatedottocryptogateway_eurcbase_nonce_' . $order_id );
+		$paygatedottocryptogateway_eurcbase_tolerance_percentage = $this->eurcbase_tolerance_percentage;
 		$paygatedottocryptogateway_eurcbase_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_eurcbase_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-eurcbase/'));
 		$paygatedottocryptogateway_eurcbase_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_eurcbase_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_eurcbase_status_nonce_' . $paygatedottocryptogateway_eurcbase_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_eurcbase_genqrcode_conversion_resp && isset($payg
     $order->add_meta_data('paygatedotto_eurcbase_ipntoken', $paygatedottocryptogateway_eurcbase_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_eurcbase_callback', $paygatedottocryptogateway_eurcbase_gen_callback, true);
 	$order->add_meta_data('paygatedotto_eurcbase_payin_amount', $paygatedottocryptogateway_eurcbase_payin_total, true);
+	$order->add_meta_data('paygatedotto_eurcbase_tolerance_percentage', $paygatedottocryptogateway_eurcbase_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_eurcbase_qrcode', $paygatedottocryptogateway_eurcbase_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_eurcbase_nonce', $paygatedottocryptogateway_eurcbase_nonce, true);
 	$order->add_meta_data('paygatedotto_eurcbase_status_nonce', $paygatedottocryptogateway_eurcbase_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_eurcbase_change_order_status_callback( $reque
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-eurcbase' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_eurcbaseexpected_amount = $order->get_meta('paygatedotto_eurcbase_payin_amount', true);
+	$paygatedottocryptogateway_eurcbaseexpected_amount = $order->get_meta('paygatedotto_eurcbase_payin_amount', true) * $order->get_meta('paygatedotto_eurcbase_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_eurcbasepaid_value_coin < $paygatedottocryptogateway_eurcbaseexpected_amount || $paygatedottocryptogateway_eurcbase_paid_coin_name !== 'base_eurc') {

@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Adabep20 extends WC_Payment_Gateway {
 
 protected $adabep20_wallet_address;
 protected $adabep20_blockchain_fees;
+protected $adabep20_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->adabep20_wallet_address = sanitize_text_field($this->get_option('adabep20_wallet_address'));
+		$this->adabep20_tolerance_percentage = sanitize_text_field($this->get_option('adabep20_tolerance_percentage'));
 		$this->adabep20_blockchain_fees = $this->get_option('adabep20_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your bep20/ada wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'adabep20_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'adabep20_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_adabep20_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_adabep20_total = $order->get_total();
 		$paygatedottocryptogateway_adabep20_nonce = wp_create_nonce( 'paygatedottocryptogateway_adabep20_nonce_' . $order_id );
+		$paygatedottocryptogateway_adabep20_tolerance_percentage = $this->adabep20_tolerance_percentage;
 		$paygatedottocryptogateway_adabep20_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_adabep20_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-adabep20/'));
 		$paygatedottocryptogateway_adabep20_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_adabep20_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_adabep20_status_nonce_' . $paygatedottocryptogateway_adabep20_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_adabep20_genqrcode_conversion_resp && isset($payg
     $order->add_meta_data('paygatedotto_adabep20_ipntoken', $paygatedottocryptogateway_adabep20_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_adabep20_callback', $paygatedottocryptogateway_adabep20_gen_callback, true);
 	$order->add_meta_data('paygatedotto_adabep20_payin_amount', $paygatedottocryptogateway_adabep20_payin_total, true);
+	$order->add_meta_data('paygatedotto_adabep20_tolerance_percentage', $paygatedottocryptogateway_adabep20_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_adabep20_qrcode', $paygatedottocryptogateway_adabep20_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_adabep20_nonce', $paygatedottocryptogateway_adabep20_nonce, true);
 	$order->add_meta_data('paygatedotto_adabep20_status_nonce', $paygatedottocryptogateway_adabep20_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_adabep20_change_order_status_callback( $reque
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-adabep20' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_adabep20expected_amount = $order->get_meta('paygatedotto_adabep20_payin_amount', true);
+	$paygatedottocryptogateway_adabep20expected_amount = $order->get_meta('paygatedotto_adabep20_payin_amount', true) * $order->get_meta('paygatedotto_adabep20_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_adabep20paid_value_coin < $paygatedottocryptogateway_adabep20expected_amount || $paygatedottocryptogateway_adabep20_paid_coin_name !== 'bep20_ada') {

@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Ltc extends WC_Payment_Gateway {
 
 protected $ltc_wallet_address;
 protected $ltc_blockchain_fees;
+protected $ltc_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->ltc_wallet_address = sanitize_text_field($this->get_option('ltc_wallet_address'));
+		$this->ltc_tolerance_percentage = sanitize_text_field($this->get_option('ltc_tolerance_percentage'));
 		$this->ltc_blockchain_fees = $this->get_option('ltc_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your ltc wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'ltc_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'ltc_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_ltc_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_ltc_total = $order->get_total();
 		$paygatedottocryptogateway_ltc_nonce = wp_create_nonce( 'paygatedottocryptogateway_ltc_nonce_' . $order_id );
+		$paygatedottocryptogateway_ltc_tolerance_percentage = $this->ltc_tolerance_percentage;
 		$paygatedottocryptogateway_ltc_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_ltc_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-ltc/'));
 		$paygatedottocryptogateway_ltc_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_ltc_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_ltc_status_nonce_' . $paygatedottocryptogateway_ltc_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_ltc_genqrcode_conversion_resp && isset($paygatedo
     $order->add_meta_data('paygatedotto_ltc_ipntoken', $paygatedottocryptogateway_ltc_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_ltc_callback', $paygatedottocryptogateway_ltc_gen_callback, true);
 	$order->add_meta_data('paygatedotto_ltc_payin_amount', $paygatedottocryptogateway_ltc_payin_total, true);
+	$order->add_meta_data('paygatedotto_ltc_tolerance_percentage', $paygatedottocryptogateway_ltc_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_ltc_qrcode', $paygatedottocryptogateway_ltc_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_ltc_nonce', $paygatedottocryptogateway_ltc_nonce, true);
 	$order->add_meta_data('paygatedotto_ltc_status_nonce', $paygatedottocryptogateway_ltc_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_ltc_change_order_status_callback( $request ) 
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-ltc' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_ltcexpected_amount = $order->get_meta('paygatedotto_ltc_payin_amount', true);
+	$paygatedottocryptogateway_ltcexpected_amount = $order->get_meta('paygatedotto_ltc_payin_amount', true) * $order->get_meta('paygatedotto_ltc_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_ltcpaid_value_coin < $paygatedottocryptogateway_ltcexpected_amount || $paygatedottocryptogateway_ltc_paid_coin_name !== 'ltc') {

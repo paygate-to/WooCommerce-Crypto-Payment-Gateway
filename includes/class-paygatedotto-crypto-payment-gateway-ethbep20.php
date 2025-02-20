@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Ethbep20 extends WC_Payment_Gateway {
 
 protected $ethbep20_wallet_address;
 protected $ethbep20_blockchain_fees;
+protected $ethbep20_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->ethbep20_wallet_address = sanitize_text_field($this->get_option('ethbep20_wallet_address'));
+		$this->ethbep20_tolerance_percentage = sanitize_text_field($this->get_option('ethbep20_tolerance_percentage'));
 		$this->ethbep20_blockchain_fees = $this->get_option('ethbep20_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your bep20/eth wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'ethbep20_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'ethbep20_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_ethbep20_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_ethbep20_total = $order->get_total();
 		$paygatedottocryptogateway_ethbep20_nonce = wp_create_nonce( 'paygatedottocryptogateway_ethbep20_nonce_' . $order_id );
+		$paygatedottocryptogateway_ethbep20_tolerance_percentage = $this->ethbep20_tolerance_percentage;
 		$paygatedottocryptogateway_ethbep20_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_ethbep20_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-ethbep20/'));
 		$paygatedottocryptogateway_ethbep20_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_ethbep20_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_ethbep20_status_nonce_' . $paygatedottocryptogateway_ethbep20_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_ethbep20_genqrcode_conversion_resp && isset($payg
     $order->add_meta_data('paygatedotto_ethbep20_ipntoken', $paygatedottocryptogateway_ethbep20_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_ethbep20_callback', $paygatedottocryptogateway_ethbep20_gen_callback, true);
 	$order->add_meta_data('paygatedotto_ethbep20_payin_amount', $paygatedottocryptogateway_ethbep20_payin_total, true);
+	$order->add_meta_data('paygatedotto_ethbep20_tolerance_percentage', $paygatedottocryptogateway_ethbep20_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_ethbep20_qrcode', $paygatedottocryptogateway_ethbep20_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_ethbep20_nonce', $paygatedottocryptogateway_ethbep20_nonce, true);
 	$order->add_meta_data('paygatedotto_ethbep20_status_nonce', $paygatedottocryptogateway_ethbep20_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_ethbep20_change_order_status_callback( $reque
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-ethbep20' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_ethbep20expected_amount = $order->get_meta('paygatedotto_ethbep20_payin_amount', true);
+	$paygatedottocryptogateway_ethbep20expected_amount = $order->get_meta('paygatedotto_ethbep20_payin_amount', true) * $order->get_meta('paygatedotto_ethbep20_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_ethbep20paid_value_coin < $paygatedottocryptogateway_ethbep20expected_amount || $paygatedottocryptogateway_ethbep20_paid_coin_name !== 'bep20_eth') {

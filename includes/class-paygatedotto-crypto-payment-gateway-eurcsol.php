@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Eurcsol extends WC_Payment_Gateway {
 
 protected $eurcsol_wallet_address;
 protected $eurcsol_blockchain_fees;
+protected $eurcsol_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->eurcsol_wallet_address = sanitize_text_field($this->get_option('eurcsol_wallet_address'));
+		$this->eurcsol_tolerance_percentage = sanitize_text_field($this->get_option('eurcsol_tolerance_percentage'));
 		$this->eurcsol_blockchain_fees = $this->get_option('eurcsol_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your sol/eurc wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'eurcsol_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'eurcsol_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_eurcsol_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_eurcsol_total = $order->get_total();
 		$paygatedottocryptogateway_eurcsol_nonce = wp_create_nonce( 'paygatedottocryptogateway_eurcsol_nonce_' . $order_id );
+		$paygatedottocryptogateway_eurcsol_tolerance_percentage = $this->eurcsol_tolerance_percentage;
 		$paygatedottocryptogateway_eurcsol_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_eurcsol_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-eurcsol/'));
 		$paygatedottocryptogateway_eurcsol_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_eurcsol_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_eurcsol_status_nonce_' . $paygatedottocryptogateway_eurcsol_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_eurcsol_genqrcode_conversion_resp && isset($payga
     $order->add_meta_data('paygatedotto_eurcsol_ipntoken', $paygatedottocryptogateway_eurcsol_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_eurcsol_callback', $paygatedottocryptogateway_eurcsol_gen_callback, true);
 	$order->add_meta_data('paygatedotto_eurcsol_payin_amount', $paygatedottocryptogateway_eurcsol_payin_total, true);
+	$order->add_meta_data('paygatedotto_eurcsol_tolerance_percentage', $paygatedottocryptogateway_eurcsol_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_eurcsol_qrcode', $paygatedottocryptogateway_eurcsol_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_eurcsol_nonce', $paygatedottocryptogateway_eurcsol_nonce, true);
 	$order->add_meta_data('paygatedotto_eurcsol_status_nonce', $paygatedottocryptogateway_eurcsol_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_eurcsol_change_order_status_callback( $reques
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-eurcsol' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_eurcsolexpected_amount = $order->get_meta('paygatedotto_eurcsol_payin_amount', true);
+	$paygatedottocryptogateway_eurcsolexpected_amount = $order->get_meta('paygatedotto_eurcsol_payin_amount', true) * $order->get_meta('paygatedotto_eurcsol_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_eurcsolpaid_value_coin < $paygatedottocryptogateway_eurcsolexpected_amount || $paygatedottocryptogateway_eurcsol_paid_coin_name !== 'sol_eurc') {

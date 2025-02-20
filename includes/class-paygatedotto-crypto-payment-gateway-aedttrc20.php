@@ -14,6 +14,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Aedttrc20 extends WC_Payment_Gateway {
 
 protected $aedttrc20_wallet_address;
 protected $aedttrc20_blockchain_fees;
+protected $aedttrc20_tolerance_percentage;
 protected $icon_url;
 
     public function __construct() {
@@ -31,6 +32,7 @@ protected $icon_url;
 
         // Use the configured settings for redirect and icon URLs
         $this->aedttrc20_wallet_address = sanitize_text_field($this->get_option('aedttrc20_wallet_address'));
+		$this->aedttrc20_tolerance_percentage = sanitize_text_field($this->get_option('aedttrc20_tolerance_percentage'));
 		$this->aedttrc20_blockchain_fees = $this->get_option('aedttrc20_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -66,6 +68,26 @@ protected $icon_url;
                 'description' => esc_html__('Insert your trc20/aedt wallet address to receive instant payouts.', 'crypto-payment-gateway'), // Escaping description
                 'desc_tip'    => true,
             ),
+            'aedttrc20_tolerance_percentage' => array(
+                'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
+                'type'        => 'select',
+                'description' => esc_html__('Select percentage to tolerate underpayment when a customer sends less crypto than the required amount.', 'crypto-payment-gateway'),
+                'desc_tip'    => true,
+                'default'     => '1',
+                'options'     => array(
+                    '1'    => '0%',
+                    '0.99' => '1%',
+                    '0.98' => '2%',
+                    '0.97' => '3%',
+                    '0.96' => '4%',
+                    '0.95' => '5%',
+                    '0.94' => '6%',
+                    '0.93' => '7%',
+                    '0.92' => '8%',
+                    '0.91' => '9%',
+                    '0.90' => '10%'
+                ),
+            ),
 			'aedttrc20_blockchain_fees' => array(
                 'title'       => esc_html__('Customer Pays Blockchain Fees', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'checkbox',
@@ -99,6 +121,7 @@ protected $icon_url;
         $paygatedottocryptogateway_aedttrc20_currency = get_woocommerce_currency();
 		$paygatedottocryptogateway_aedttrc20_total = $order->get_total();
 		$paygatedottocryptogateway_aedttrc20_nonce = wp_create_nonce( 'paygatedottocryptogateway_aedttrc20_nonce_' . $order_id );
+		$paygatedottocryptogateway_aedttrc20_tolerance_percentage = $this->aedttrc20_tolerance_percentage;
 		$paygatedottocryptogateway_aedttrc20_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_aedttrc20_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-aedttrc20/'));
 		$paygatedottocryptogateway_aedttrc20_email = urlencode(sanitize_email($order->get_billing_email()));
 		$paygatedottocryptogateway_aedttrc20_status_nonce = wp_create_nonce( 'paygatedottocryptogateway_aedttrc20_status_nonce_' . $paygatedottocryptogateway_aedttrc20_email );
@@ -244,6 +267,7 @@ if ($paygatedottocryptogateway_aedttrc20_genqrcode_conversion_resp && isset($pay
     $order->add_meta_data('paygatedotto_aedttrc20_ipntoken', $paygatedottocryptogateway_aedttrc20_gen_ipntoken, true);
     $order->add_meta_data('paygatedotto_aedttrc20_callback', $paygatedottocryptogateway_aedttrc20_gen_callback, true);
 	$order->add_meta_data('paygatedotto_aedttrc20_payin_amount', $paygatedottocryptogateway_aedttrc20_payin_total, true);
+	$order->add_meta_data('paygatedotto_aedttrc20_tolerance_percentage', $paygatedottocryptogateway_aedttrc20_tolerance_percentage, true);
 	$order->add_meta_data('paygatedotto_aedttrc20_qrcode', $paygatedottocryptogateway_aedttrc20_genqrcode_pngimg, true);
 	$order->add_meta_data('paygatedotto_aedttrc20_nonce', $paygatedottocryptogateway_aedttrc20_nonce, true);
 	$order->add_meta_data('paygatedotto_aedttrc20_status_nonce', $paygatedottocryptogateway_aedttrc20_status_nonce, true);
@@ -395,7 +419,7 @@ function paygatedottocryptogateway_aedttrc20_change_order_status_callback( $requ
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-aedttrc20' === $order->get_payment_method() ) {
 		
 		// Get the expected amount and coin
-	$paygatedottocryptogateway_aedttrc20expected_amount = $order->get_meta('paygatedotto_aedttrc20_payin_amount', true);
+	$paygatedottocryptogateway_aedttrc20expected_amount = $order->get_meta('paygatedotto_aedttrc20_payin_amount', true) * $order->get_meta('paygatedotto_aedttrc20_tolerance_percentage', true);
 
 	
 		if ( $paygatedottocryptogateway_aedttrc20paid_value_coin < $paygatedottocryptogateway_aedttrc20expected_amount || $paygatedottocryptogateway_aedttrc20_paid_coin_name !== 'trc20_aedt') {
