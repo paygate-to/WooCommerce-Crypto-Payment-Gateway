@@ -3,11 +3,11 @@ Contributors: paygatedotto
 Donate link: https://paygate.to/
 Tags: woocommerce,payment,crypto,gateway
 Requires at least: 5.8
-Tested up to: 6.7.2
-Stable tag: 1.0.7
+Tested up to: 6.8
+Stable tag: 1.0.8
 Requires PHP: 7.2
 WC requires at least: 5.8
-WC tested up to: 9.6.2
+WC tested up to: 10.1.0
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -34,6 +34,7 @@ Accept crypto payments directly on your WooCommerce website, each order is assig
 * Crypto icons on checkout page and QR code.
 * Multi-currency support.
 * Supported networks: BTC - BCH - LTC - doge - ETH - TRC20 - ERC20 - BEP20 - Arbitrum - Polygon - AVAX-C - Optimism - Base - Solana [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
+* Optional hosted multi-coin mode to enable all cryptocurrencies at one enabled payment method.
 
 Minimum allowed order amount varies per crypto coin you can [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
 
@@ -42,7 +43,7 @@ The plugin and offered service through [PayGate.to Crypto Payment Gateway API](h
 == Installation ==
 
 * After installing and activating this plugin go to WooCommerce >>> Settings >>> Payments >>> PayGate.to Crypto Payment gateway
-* Activate the desired crypto coin gateway and insert your wallet address to receive instant payouts.
+* Activate the desired crypto coin gateway and insert your wallet address to receive instant payouts. Optionally you can enable the hosted mode and enable multi-coin at one enabled payment method.
 * Save settings and you will be ready to accept cryptocurrencies directly on your website!
 
 = Minimum Requirements =
@@ -82,6 +83,10 @@ Our plugin is tested to mark orders as processing automatically after payment. Y
 5. screenshot-5.png
 
 == Changelog ==
+
+= V1.0.8 =
+
+* Hosted mode option with multi-coin selection in one enabled payment method.
 
 = V1.0.7 =
 
