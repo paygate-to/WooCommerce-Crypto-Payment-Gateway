@@ -15,6 +15,7 @@ class PayGateDotTo_Crypto_Payment_Gateway_Multicoin extends WC_Payment_Gateway {
 protected $multicoin_wallet_address;
 protected $multicoin_blockchain_fees;
 protected $multicoin_tolerance_percentage;
+protected $multicoin_custom_domain;
 protected $icon_url;
 
     public function __construct() {
@@ -41,6 +42,7 @@ protected $icon_url;
     'trc20'        => sanitize_text_field($this->get_option('multicoin_wallet_trc20')),
 );
 		$this->multicoin_tolerance_percentage = sanitize_text_field($this->get_option('multicoin_tolerance_percentage'));
+		$this->multicoin_custom_domain = rtrim(str_replace(['https://','http://'], '', sanitize_text_field($this->get_option('multicoin_custom_domain'))), '/');
 		$this->multicoin_blockchain_fees = $this->get_option('multicoin_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -60,6 +62,13 @@ protected $icon_url;
                 'type'        => 'text',
                 'description' => esc_html__('Payment method title that users will see during checkout.', 'crypto-payment-gateway'), // Escaping description
                 'default'     => esc_html__('Multicoin', 'crypto-payment-gateway'), // Escaping default value
+                'desc_tip'    => true,
+            ),
+			'multicoin_custom_domain' => array(
+                'title'       => esc_html__('Custom Domain', 'crypto-payment-gateway'), // Escaping title
+                'type'        => 'text',
+                'description' => esc_html__('Follow the custom domain guide to use your own domain name for the checkout pages and links.', 'crypto-payment-gateway'), // Escaping description
+                'default'     => esc_html__('checkout.paygate.to', 'crypto-payment-gateway'), // Escaping default value
                 'desc_tip'    => true,
             ),
             'description' => array(
@@ -256,7 +265,7 @@ if (is_wp_error($paygatedottocryptogateway_multicoinmulticoin_gen_wallet)) {
         // Redirect to payment page
         return array(
             'result'   => 'success',
-            'redirect' => 'https://checkout.paygate.to/crypto/hosted.php?payment_token=' . $paygatedottocryptogateway_multicoinmulticoin_gen_addressIn . '&add_fees=' . $paygatedottocryptogateway_multicoinmulticoin_fees_value,
+            'redirect' => 'https://' . $this->multicoin_custom_domain . '/crypto/hosted.php?payment_token=' . $paygatedottocryptogateway_multicoinmulticoin_gen_addressIn . '&add_fees=' . $paygatedottocryptogateway_multicoinmulticoin_fees_value,
         );
     }
 

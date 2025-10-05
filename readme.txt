@@ -4,10 +4,10 @@ Donate link: https://paygate.to/
 Tags: woocommerce,payment,crypto,gateway
 Requires at least: 5.8
 Tested up to: 6.8
-Stable tag: 1.0.8
+Stable tag: 1.0.9
 Requires PHP: 7.2
 WC requires at least: 5.8
-WC tested up to: 10.1.0
+WC tested up to: 10.2.2
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -34,7 +34,7 @@ Accept crypto payments directly on your WooCommerce website, each order is assig
 * Crypto icons on checkout page and QR code.
 * Multi-currency support.
 * Supported networks: BTC - BCH - LTC - doge - ETH - TRC20 - ERC20 - BEP20 - Arbitrum - Polygon - AVAX-C - Optimism - Base - Solana [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
-* Optional hosted multi-coin mode to enable all cryptocurrencies at one enabled payment method.
+* Optional hosted multi-coin mode to enable all cryptocurrencies at one enabled payment method with custom domain name option support.
 
 Minimum allowed order amount varies per crypto coin you can [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
 
@@ -83,6 +83,10 @@ Our plugin is tested to mark orders as processing automatically after payment. Y
 5. screenshot-5.png
 
 == Changelog ==
+
+= V1.0.9 =
+
+* Custom domain name option for the hosted multi-coin mode.
 
 = V1.0.8 =
 
