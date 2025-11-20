@@ -357,7 +357,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
 
     // Check if the order is pending and payment method is 'paygatedotto-crypto-payment-gateway-bch'
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-multicoin' === $order->get_payment_method() ) {
-		
+	$paygatedottocryptogateway_multicoincurrency      = $order->get_meta( 'paygatedotto_multicoin_currency', true );	
  // Fetch coin pricing from PayGate
     $paygatedottocryptogateway_multicoininfo_url = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/info.php';
     $paygatedottocryptogateway_multicoinresponse = wp_remote_get( $paygatedottocryptogateway_multicoininfo_url, array( 'timeout' => 30 ) );
@@ -373,7 +373,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
     $paygatedottocryptogateway_multicoinbody      = wp_remote_retrieve_body( $paygatedottocryptogateway_multicoinresponse );
     $paygatedottocryptogateway_multicoincoin_data = json_decode( $paygatedottocryptogateway_multicoinbody, true );
 
-    if ( ! is_array( $paygatedottocryptogateway_multicoincoin_data ) || empty( $paygatedottocryptogateway_multicoincoin_data['prices'] ) ) {
+    if ( ! is_array( $paygatedottocryptogateway_multicoincoin_data ) || ! isset( $paygatedottocryptogateway_multicoincoin_data['prices'][ $paygatedottocryptogateway_multicoincurrency ] ) ) {
         return new WP_Error(
             'paygatedottocryptogateway_invalid_coin_data',
             __( 'Invalid coin data received from PayGate.', 'crypto-payment-gateway' ),
@@ -382,18 +382,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
     }
 
     // Get fiat price for order currency
-    $paygatedottocryptogateway_multicoincurrency      = $order->get_meta( 'paygatedotto_multicoin_currency', true );
-    $paygatedottocryptogateway_multicoincoin_price    = isset( $paygatedottocryptogateway_multicoincoin_data['prices'][ $paygatedottocryptogateway_multicoincurrency ] )
-        ? floatval( $paygatedottocryptogateway_multicoincoin_data['prices'][ $paygatedottocryptogateway_multicoincurrency ] )
-        : 0;
-
-    if ( $paygatedottocryptogateway_multicoincoin_price <= 0 ) {
-        return new WP_Error(
-            'paygatedottocryptogateway_missing_price',
-            __( 'No valid fiat price found for this coin.', 'crypto-payment-gateway' ),
-            array( 'status' => 500 )
-        );
-    }
+    $paygatedottocryptogateway_multicoincoin_price    = floatval( $paygatedottocryptogateway_multicoincoin_data['prices'][ $paygatedottocryptogateway_multicoincurrency ] );
 
     // Convert crypto amount to fiat
     $paygatedottocryptogateway_multicoinreceived_coin = $paygatedottocryptogateway_multicoinpaid_value_coin;
@@ -416,7 +405,7 @@ if ($paygatedottocryptogateway_multicoin_fee_read_settings === '1') {
 	$paygatedottocryptogateway_multicoinfeesbody      = wp_remote_retrieve_body( $paygatedottocryptogateway_multicoinfeesresponse );
     $paygatedottocryptogateway_multicoinfeescoin_data = json_decode( $paygatedottocryptogateway_multicoinfeesbody, true );
 
-    if ( ! is_array( $paygatedottocryptogateway_multicoinfeescoin_data ) || empty( $paygatedottocryptogateway_multicoinfeescoin_data['estimated_cost_currency'] ) ) {
+    if ( ! is_array( $paygatedottocryptogateway_multicoinfeescoin_data ) || ! isset( $paygatedottocryptogateway_multicoinfeescoin_data['estimated_cost_currency'][$paygatedottocryptogateway_multicoincurrency] ) ) {
         return new WP_Error(
             'paygatedottocryptogateway_invalid_coin_data',
             __( 'Invalid coin fee data received from PayGate.', 'crypto-payment-gateway' ),
@@ -424,17 +413,7 @@ if ($paygatedottocryptogateway_multicoin_fee_read_settings === '1') {
         );
     }
 	
-	$paygatedottocryptogateway_multicoinfeescoin_price    = isset( $paygatedottocryptogateway_multicoinfeescoin_data['estimated_cost_currency'][ $paygatedottocryptogateway_multicoincurrency ] )
-        ? floatval( $paygatedottocryptogateway_multicoinfeescoin_data['estimated_cost_currency'][ $paygatedottocryptogateway_multicoincurrency ] )
-        : 0;
-
-    if ( $paygatedottocryptogateway_multicoinfeescoin_price <= 0 ) {
-        return new WP_Error(
-            'paygatedottocryptogateway_missing_price',
-            __( 'No valid fiat fee price found for this coin.', 'crypto-payment-gateway' ),
-            array( 'status' => 500 )
-        );
-    }
+	$paygatedottocryptogateway_multicoinfeescoin_price    = floatval( $paygatedottocryptogateway_multicoinfeescoin_data['estimated_cost_currency'][ $paygatedottocryptogateway_multicoincurrency ] );
 	
 	$paygatedottocryptogateway_multicoinminimum_required = $paygatedottocryptogateway_multicoinminimum_initial_required + $paygatedottocryptogateway_multicoinfeescoin_price;
 		

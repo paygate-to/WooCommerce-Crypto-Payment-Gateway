@@ -4,10 +4,10 @@ Donate link: https://paygate.to/
 Tags: woocommerce,payment,crypto,gateway
 Requires at least: 5.8
 Tested up to: 6.8
-Stable tag: 1.0.9
+Stable tag: 1.1.0
 Requires PHP: 7.2
 WC requires at least: 5.8
-WC tested up to: 10.2.2
+WC tested up to: 10.3.5
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -83,6 +83,10 @@ Our plugin is tested to mark orders as processing automatically after payment. Y
 5. screenshot-5.png
 
 == Changelog ==
+
+= V1.1.0 =
+
+* Bug fix
 
 = V1.0.9 =
 
