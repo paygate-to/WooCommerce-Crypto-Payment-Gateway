@@ -337,11 +337,11 @@ public function paygatedotto_crypto_payment_gateway_get_icon_url() {
     }
 }
 
-function paygatedotto_add_instant_payment_gateway_avaxpolygon($gateways) {
+function paygatedottocryptogateway_add_instant_payment_gateway_avaxpolygon($gateways) {
     $gateways[] = 'PayGateDotTo_Crypto_Payment_Gateway_Avaxpolygon';
     return $gateways;
 }
-add_filter('woocommerce_payment_gateways', 'paygatedotto_add_instant_payment_gateway_avaxpolygon');
+add_filter('woocommerce_payment_gateways', 'paygatedottocryptogateway_add_instant_payment_gateway_avaxpolygon');
 }
 
 // Add custom endpoint for reading crypto payment status

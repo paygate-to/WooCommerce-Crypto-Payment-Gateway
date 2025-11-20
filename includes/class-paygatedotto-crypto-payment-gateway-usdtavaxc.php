@@ -337,11 +337,11 @@ public function paygatedotto_crypto_payment_gateway_get_icon_url() {
     }
 }
 
-function paygatedotto_add_instant_payment_gateway_usdtavaxc($gateways) {
+function paygatedottocryptogateway_add_instant_payment_gateway_usdtavaxc($gateways) {
     $gateways[] = 'PayGateDotTo_Crypto_Payment_Gateway_Usdtavaxc';
     return $gateways;
 }
-add_filter('woocommerce_payment_gateways', 'paygatedotto_add_instant_payment_gateway_usdtavaxc');
+add_filter('woocommerce_payment_gateways', 'paygatedottocryptogateway_add_instant_payment_gateway_usdtavaxc');
 }
 
 // Add custom endpoint for reading crypto payment status

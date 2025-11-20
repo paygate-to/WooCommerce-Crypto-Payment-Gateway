@@ -337,11 +337,11 @@ public function paygatedotto_crypto_payment_gateway_get_icon_url() {
     }
 }
 
-function paygatedotto_add_instant_payment_gateway_btc($gateways) {
+function paygatedottocryptogateway_add_instant_payment_gateway_btc($gateways) {
     $gateways[] = 'PayGateDotTo_Crypto_Payment_Gateway_Btc';
     return $gateways;
 }
-add_filter('woocommerce_payment_gateways', 'paygatedotto_add_instant_payment_gateway_btc');
+add_filter('woocommerce_payment_gateways', 'paygatedottocryptogateway_add_instant_payment_gateway_btc');
 }
 
 // Add custom endpoint for reading crypto payment status
