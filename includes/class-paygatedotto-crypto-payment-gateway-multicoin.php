@@ -17,6 +17,10 @@ protected $multicoin_blockchain_fees;
 protected $multicoin_tolerance_percentage;
 protected $multicoin_custom_domain;
 protected $icon_url;
+protected $background_color;
+protected $button_color;
+protected $theme_color;
+protected $logo_url;
 
     public function __construct() {
         $this->id                 = 'paygatedotto-crypto-payment-gateway-multicoin';
@@ -30,6 +34,10 @@ protected $icon_url;
 
         $this->title       = sanitize_text_field($this->get_option('title'));
         $this->description = sanitize_text_field($this->get_option('description'));
+		$this->logo_url     = sanitize_url($this->get_option('logo_url'));
+		$this->background_color       = sanitize_text_field($this->get_option('background_color'));
+		$this->button_color       = sanitize_text_field($this->get_option('button_color'));
+		$this->theme_color       = sanitize_text_field($this->get_option('theme_color'));
 
         // Use the configured settings for redirect and icon URLs
         $this->multicoin_wallet_address = array(
@@ -147,20 +155,50 @@ protected $icon_url;
                 'desc_tip'    => true,
 				'default' => 'no',
             ),
+			'logo_url' => array(
+                'title'       => esc_html__('Custom Logo URL', 'crypto-payment-gateway'), // Escaping title
+                'type'        => 'url',
+                'description' => esc_html__('Add your own brand or website logo to the hosted checkout page.', 'crypto-payment-gateway'), // Escaping description
+                'desc_tip'    => true,
+            ),
+			'background_color' => array(
+                'title'       => esc_html__('Background Color', 'crypto-payment-gateway'), // Escaping title
+                'type'        => 'text',
+                'description' => esc_html__('Insert HEX color code for the hosted page background color.', 'crypto-payment-gateway'), // Escaping description
+                'desc_tip'    => true,
+            ),
+			'theme_color' => array(
+                'title'       => esc_html__('Theme Color', 'crypto-payment-gateway'), // Escaping title
+                'type'        => 'text',
+                'description' => esc_html__('Insert HEX color code for the hosted page theme color.', 'crypto-payment-gateway'), // Escaping description
+                'desc_tip'    => true,
+            ),
+			'button_color' => array(
+                'title'       => esc_html__('Button Color', 'crypto-payment-gateway'), // Escaping title
+                'type'        => 'text',
+                'description' => esc_html__('Insert HEX color code for the hosted page pay button color.', 'crypto-payment-gateway'), // Escaping description
+                'desc_tip'    => true,
+            ),
         );
     }
 	
 	 // Add this method to validate the wallet address in wp-admin
 public function process_admin_options() {
+    // Verify nonce
     if (
-        !isset($_POST['_wpnonce']) ||
-        !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_wpnonce'])), 'woocommerce-settings')
+        ! isset($_POST['_wpnonce']) ||
+        ! wp_verify_nonce(
+            sanitize_text_field(wp_unslash($_POST['_wpnonce'])),
+            'woocommerce-settings'
+        )
     ) {
-        WC_Admin_Settings::add_error(__('Nonce verification failed. Please try again.', 'crypto-payment-gateway'));
+        WC_Admin_Settings::add_error(
+            esc_html__('Nonce verification failed. Please try again.', 'crypto-payment-gateway')
+        );
         return false;
     }
 
-    $required_wallet_keys = [
+    $wallet_keys = [
         'multicoin_wallet_evm',
         'multicoin_wallet_btc',
         'multicoin_wallet_bitcoincash',
@@ -170,20 +208,32 @@ public function process_admin_options() {
         'multicoin_wallet_trc20',
     ];
 
-    foreach ($required_wallet_keys as $key) {
-        $field_name = $this->plugin_id . $this->id . '_' . $key;
-        $value = isset($_POST[$field_name]) ? trim(sanitize_text_field(wp_unslash($_POST[$field_name]))) : '';
+    $has_one_filled = false;
 
-        if (empty($value)) {
-    /* translators: 1: coin label generated from the field name, e.g. "EVM", "BTC", "LTC" */			
-            WC_Admin_Settings::add_error(sprintf(__('Missing wallet address for %s. Please fill in all wallet fields.', 'crypto-payment-gateway'), esc_html(strtoupper(str_replace('multicoin_wallet_', '', $key)))));
-            return false;
+    foreach ( $wallet_keys as $key ) {
+        $sanitized_key = sanitize_key($key);
+
+        $field_name = $this->plugin_id . $this->id . '_' . $sanitized_key;
+
+        $value = isset($_POST[$field_name])
+            ? sanitize_text_field(wp_unslash($_POST[$field_name]))
+            : '';
+
+        if (! empty($value)) {
+            $has_one_filled = true;
+            break;
         }
+    }
+
+    if ( ! $has_one_filled ) {
+        WC_Admin_Settings::add_error(
+            esc_html__('Please insert at least one wallet address before saving.', 'crypto-payment-gateway')
+        );
+        return false;
     }
 
     return parent::process_admin_options();
 }
-
 	
     public function process_payment($order_id) {
         $order = wc_get_order($order_id);
@@ -193,26 +243,39 @@ public function process_admin_options() {
 		$paygatedottocryptogateway_multicoinmulticoin_tolerance_percentage = $this->multicoin_tolerance_percentage;
 		$paygatedottocryptogateway_multicoinmulticoin_callback = add_query_arg(array('order_id' => $order_id, 'nonce' => $paygatedottocryptogateway_multicoinmulticoin_nonce,), rest_url('paygatedottocryptogateway/v1/paygatedottocryptogateway-multicoin/'));
 		$paygatedottocryptogateway_multicoinmulticoin_email = urlencode(sanitize_email($order->get_billing_email()));
-$paygatedottocryptogateway_multicoinmulticoin_evm_wallet         = $this->multicoin_wallet_address['evm'];
-$paygatedottocryptogateway_multicoinmulticoin_btc_wallet         = $this->multicoin_wallet_address['btc'];
-$paygatedottocryptogateway_multicoinmulticoin_bitcoincash_wallet = $this->multicoin_wallet_address['bitcoincash'];
-$paygatedottocryptogateway_multicoinmulticoin_ltc_wallet         = $this->multicoin_wallet_address['ltc'];
-$paygatedottocryptogateway_multicoinmulticoin_doge_wallet        = $this->multicoin_wallet_address['doge'];
-$paygatedottocryptogateway_multicoinmulticoin_solana_wallet      = $this->multicoin_wallet_address['solana'];
-$paygatedottocryptogateway_multicoinmulticoin_trc20_wallet       = $this->multicoin_wallet_address['trc20'];
-		
-   $paygatedottocryptogateway_multicoindecoded_payload = array(
-		'evm' => $paygatedottocryptogateway_multicoinmulticoin_evm_wallet,
-        'btc' => $paygatedottocryptogateway_multicoinmulticoin_btc_wallet,
-		'bitcoincash' => $paygatedottocryptogateway_multicoinmulticoin_bitcoincash_wallet,
-        'ltc' => $paygatedottocryptogateway_multicoinmulticoin_ltc_wallet,
-		'doge' => $paygatedottocryptogateway_multicoinmulticoin_doge_wallet,
-		'solana' => $paygatedottocryptogateway_multicoinmulticoin_solana_wallet,
-		'trc20' => $paygatedottocryptogateway_multicoinmulticoin_trc20_wallet,
+		   $paygatedottocryptogateway_multicoindecoded_payload = array(
 		'fiat_amount' => $paygatedottocryptogateway_multicoinmulticoin_total,
 		'fiat_currency' => $paygatedottocryptogateway_multicoinmulticoin_currency,
         'callback' => $paygatedottocryptogateway_multicoinmulticoin_callback,
             );
+ if ( isset( $this->multicoin_wallet_address['evm'] ) && '' !== $this->multicoin_wallet_address['evm'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['evm'] =  $this->multicoin_wallet_address['evm'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['btc'] ) && '' !== $this->multicoin_wallet_address['btc'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['btc'] = $this->multicoin_wallet_address['btc'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['bitcoincash'] ) && '' !== $this->multicoin_wallet_address['bitcoincash'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['bitcoincash'] = $this->multicoin_wallet_address['bitcoincash'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['ltc'] ) && '' !== $this->multicoin_wallet_address['ltc'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['ltc'] = $this->multicoin_wallet_address['ltc'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['doge'] ) && '' !== $this->multicoin_wallet_address['doge'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['doge'] = $this->multicoin_wallet_address['doge'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['solana'] ) && '' !== $this->multicoin_wallet_address['solana'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['solana'] = $this->multicoin_wallet_address['solana'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['trc20'] ) && '' !== $this->multicoin_wallet_address['trc20'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['trc20'] = $this->multicoin_wallet_address['trc20'];
+    }
+		
 			$paygatedottocryptogateway_multicoinjson_payload = json_encode($paygatedottocryptogateway_multicoindecoded_payload);
 
 		
@@ -226,7 +289,16 @@ $paygatedottocryptogateway_multicoinmulticoin_trc20_wallet       = $this->multic
 
 		}
 		
-$paygatedottocryptogateway_multicoinmulticoin_gen_wallet = wp_remote_get('https://api.paygate.to/crypto/multi-hosted-wallet.php?payload=' . urlencode($paygatedottocryptogateway_multicoinjson_payload) , array('timeout' => 30));
+$paygatedottocryptogateway_multicoinmulticoin_gen_wallet = wp_remote_post(
+    'https://api.paygate.to/crypto/multi-hosted-wallet.php',
+    array(
+        'timeout' => 30,
+        'headers' => array(
+            'Content-Type' => 'application/json',
+        ),
+        'body' => $paygatedottocryptogateway_multicoinjson_payload, // JSON string directly
+    )
+);
 
 if (is_wp_error($paygatedottocryptogateway_multicoinmulticoin_gen_wallet)) {
     // Handle error
@@ -265,8 +337,7 @@ if (is_wp_error($paygatedottocryptogateway_multicoinmulticoin_gen_wallet)) {
         // Redirect to payment page
         return array(
             'result'   => 'success',
-            'redirect' => 'https://' . $this->multicoin_custom_domain . '/crypto/hosted.php?payment_token=' . $paygatedottocryptogateway_multicoinmulticoin_gen_addressIn . '&add_fees=' . $paygatedottocryptogateway_multicoinmulticoin_fees_value,
-        );
+            'redirect' => 'https://' . $this->multicoin_custom_domain . '/crypto/hosted.php?payment_token=' . $paygatedottocryptogateway_multicoinmulticoin_gen_addressIn . '&add_fees=' . $paygatedottocryptogateway_multicoinmulticoin_fees_value . (isset($this->logo_url) && $this->logo_url ? '&logo=' . urlencode($this->logo_url) : '') . (isset($this->background_color) && $this->background_color ? '&background=' . urlencode($this->background_color) : '') . (isset($this->theme_color) && $this->theme_color ? '&theme=' . urlencode($this->theme_color) : '') . (isset($this->button_color) && $this->button_color ? '&button=' . urlencode($this->button_color) : ''),);
     }
 
 
