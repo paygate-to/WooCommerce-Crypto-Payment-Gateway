@@ -3,12 +3,12 @@
  * Plugin Name: Crypto Payment Gateway with Instant Payouts
  * Plugin URI: https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/
  * Description: Cryptocurrency Payment Gateway with instant payouts to your wallet and without KYC hosted directly on your website.
- * Version: 1.1.2
+ * Version: 1.1.3
  * Requires Plugins: woocommerce
  * Requires at least: 5.8
- * Tested up to: 6.8
+ * Tested up to: 6.9
  * WC requires at least: 5.8
- * WC tested up to: 10.3.6
+ * WC tested up to: 10.4.3
  * Requires PHP: 7.2
  * Author: PayGate.to
  * Author URI: https://paygate.to/
@@ -170,6 +170,12 @@ add_action('wp_enqueue_scripts', 'paygatedottocryptogateway_enqueue_styles');
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-cbbtcsol.php'); // Include the payment gateway class
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-pyusdsol.php'); // Include the payment gateway class
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-trumpsol.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-monmonad.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcmonad.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdt0monad.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdclinea.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ethlinea.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtlinea.php'); // Include the payment gateway class
 
 	// Conditional function that check if Checkout page use Checkout Blocks
 function paygatedottocryptogateway_is_checkout_block() {

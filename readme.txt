@@ -3,11 +3,11 @@ Contributors: paygatedotto
 Donate link: https://paygate.to/
 Tags: woocommerce,payment,crypto,gateway
 Requires at least: 5.8
-Tested up to: 6.8
-Stable tag: 1.1.2
+Tested up to: 6.9
+Stable tag: 1.1.3
 Requires PHP: 7.2
 WC requires at least: 5.8
-WC tested up to: 10.3.6
+WC tested up to: 10.4.3
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -33,7 +33,7 @@ Accept crypto payments directly on your WooCommerce website, each order is assig
 * Please check our website for the minimum transaction amount for each cryptocurrency.
 * Crypto icons on checkout page and QR code.
 * Multi-currency support.
-* Supported networks: BTC - BCH - LTC - doge - ETH - TRC20 - ERC20 - BEP20 - Arbitrum - Polygon - AVAX-C - Optimism - Base - Solana [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
+* Supported networks: BTC - BCH - LTC - doge - ETH - TRC20 - ERC20 - BEP20 - Arbitrum - Polygon - AVAX-C - Optimism - Base - Solana - Monad - Linea [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
 * Optional hosted multi-coin mode to enable all cryptocurrencies at one enabled payment method with custom domain name option support.
 
 Minimum allowed order amount varies per crypto coin you can [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
@@ -83,6 +83,10 @@ Our plugin is tested to mark orders as processing automatically after payment. Y
 5. screenshot-5.png
 
 == Changelog ==
+
+= V1.1.3 =
+
+* Supporting Monad and Linea
 
 = V1.1.2 =
 
