@@ -3,9 +3,9 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-add_action('plugins_loaded', 'init_paygatedottocryptogateway_multicoin_gateway');
+add_action('plugins_loaded', 'paygatedottocryptogateway_init_multicoin_gateway');
 
-function init_paygatedottocryptogateway_multicoin_gateway() {
+function paygatedottocryptogateway_init_multicoin_gateway() {
     if (!class_exists('WC_Payment_Gateway')) {
         return;
     }

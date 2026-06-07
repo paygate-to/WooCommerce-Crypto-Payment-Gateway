@@ -3,12 +3,12 @@
  * Plugin Name: Crypto Payment Gateway with Instant Payouts
  * Plugin URI: https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/
  * Description: Cryptocurrency Payment Gateway with instant payouts to your wallet and without KYC hosted directly on your website.
- * Version: 1.1.3
+ * Version: 1.1.4
  * Requires Plugins: woocommerce
  * Requires at least: 5.8
- * Tested up to: 6.9
+ * Tested up to: 7.0
  * WC requires at least: 5.8
- * WC tested up to: 10.4.3
+ * WC tested up to: 10.8.1
  * Requires PHP: 7.2
  * Author: PayGate.to
  * Author URI: https://paygate.to/
@@ -34,41 +34,83 @@ add_action( 'before_woocommerce_init', function() {
 } );
 
 /**
- * Enqueue block assets for the gateway.
+ * Register (once) the shared block-checkout client script and localise the list
+ * of enabled PayGate gateways for it.
+ *
+ * Called from the block payment integration so WooCommerce loads it within the
+ * Cart/Checkout block context only — never on the front end at large and never
+ * in the block editor. Dependencies are intentionally minimal: pulling in the
+ * editor runtime (wp-editor/wp-blocks) on the storefront makes WooCommerce load
+ * its editor "preview cart" (sample products Beanie/Cap) and emit phantom
+ * "removed from your cart" notices.
  */
-function paygatedottocryptogateway_enqueue_block_assets() {
-    // Fetch all enabled WooCommerce payment gateways
-    $paygatedottocryptogateway_available_gateways = WC()->payment_gateways()->get_available_payment_gateways();
-    $paygatedottocryptogateway_gateways_data = array();
+function paygatedottocryptogateway_register_block_checkout_script()
+{
+    $handle = 'paygatedottocryptogateway-block-support';
+    $path   = 'assets/js/paygatedottocryptogateway-block-checkout-support.js';
 
-    foreach ($paygatedottocryptogateway_available_gateways as $gateway_id => $gateway) {
-		if (strpos($gateway_id, 'paygatedotto-crypto-payment-gateway') === 0) {
-        $icon_url = method_exists($gateway, 'paygatedotto_crypto_payment_gateway_get_icon_url') ? $gateway->paygatedotto_crypto_payment_gateway_get_icon_url() : '';
-        $paygatedottocryptogateway_gateways_data[] = array(
-            'id' => sanitize_key($gateway_id),
-            'label' => sanitize_text_field($gateway->get_title()),
-            'description' => wp_kses_post($gateway->get_description()),
-            'icon_url' => sanitize_url($icon_url),
-        );
-		}
+    if (wp_script_is($handle, 'registered')) {
+        return;
     }
 
-    wp_enqueue_script(
-        'paygatedottocryptogateway-block-support',
-        plugin_dir_url(__FILE__) . 'assets/js/paygatedottocryptogateway-block-checkout-support.js',
-        array('wc-blocks-registry', 'wp-element', 'wp-i18n', 'wp-components', 'wp-blocks', 'wp-editor'),
-        filemtime(plugin_dir_path(__FILE__) . 'assets/js/paygatedottocryptogateway-block-checkout-support.js'),
+    wp_register_script(
+        $handle,
+        plugin_dir_url(__FILE__) . $path,
+        array('wc-blocks-registry', 'wp-element'),
+        filemtime(plugin_dir_path(__FILE__) . $path),
         true
     );
 
-    // Localize script with gateway data
-    wp_localize_script(
-        'paygatedottocryptogateway-block-support',
-        'paygatedottocryptogatewayData',
-        $paygatedottocryptogateway_gateways_data
-    );
+    $paygatedottocryptogateway_gateways_data = array();
+    foreach (WC()->payment_gateways()->payment_gateways() as $gateway_id => $gateway) {
+        // The dynamic individual-coin gateway has its own dedicated block script
+        // (it renders a coin selector), so skip it here to avoid double-registration.
+        if ('paygatedotto-crypto-payment-gateway-dynamic' === $gateway_id) {
+            continue;
+        }
+        if (strpos($gateway_id, 'paygatedotto-crypto-payment-gateway') === 0 && 'yes' === $gateway->enabled) {
+            $icon_url = method_exists($gateway, 'paygatedotto_crypto_payment_gateway_get_icon_url') ? $gateway->paygatedotto_crypto_payment_gateway_get_icon_url() : '';
+            $paygatedottocryptogateway_gateways_data[] = array(
+                'id'          => $gateway_id,
+                'label'       => sanitize_text_field($gateway->get_title()),
+                'description' => wp_kses_post($gateway->get_description()),
+                'icon_url'    => sanitize_url($icon_url),
+            );
+        }
+    }
+
+    wp_localize_script($handle, 'paygatedottocryptogatewayData', $paygatedottocryptogateway_gateways_data);
 }
-add_action('enqueue_block_assets', 'paygatedottocryptogateway_enqueue_block_assets');
+
+/**
+ * Register each PayGate gateway with the WooCommerce Cart & Checkout blocks.
+ *
+ * Server-side registration is required (in addition to the client-side
+ * registerPaymentMethod call) so the Store API recognises the gateway as a
+ * submittable payment method. Without it the block checkout sends an empty
+ * payment_method and fails with "No payment method provided".
+ */
+add_action('woocommerce_blocks_payment_method_type_registration', function ($paygatedottocryptogateway_payment_method_registry) {
+    require_once plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-blocks-integration.php';
+
+    foreach (WC()->payment_gateways()->payment_gateways() as $gateway_id => $gateway) {
+        if ('paygatedotto-crypto-payment-gateway-dynamic' === $gateway_id) {
+            // The dynamic individual-coin gateway uses its own block integration
+            // (defined alongside the gateway) so it can render a coin selector.
+            if (class_exists('PayGateDotTo_Crypto_Payment_Gateway_Dynamic_Blocks_Integration')) {
+                $paygatedottocryptogateway_payment_method_registry->register(
+                    new PayGateDotTo_Crypto_Payment_Gateway_Dynamic_Blocks_Integration($gateway)
+                );
+            }
+            continue;
+        }
+        if (strpos($gateway_id, 'paygatedotto-crypto-payment-gateway') === 0) {
+            $paygatedottocryptogateway_payment_method_registry->register(
+                new PayGateDotTo_Crypto_Payment_Gateway_Blocks_Integration($gateway_id, $gateway)
+            );
+        }
+    }
+});
 
 /**
  * Enqueue styles for the gateway on checkout page.
@@ -86,96 +128,7 @@ function paygatedottocryptogateway_enqueue_styles() {
 add_action('wp_enqueue_scripts', 'paygatedottocryptogateway_enqueue_styles');
 
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-multicoin.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-btc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-bch.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ltc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-doge.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-oneinchbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-adabep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-bnbbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-btcbbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-cakebep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-daibep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-dogebep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ethbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ltcbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-phptbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-shibbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usd1bep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-xrpbep20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-oneincherc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-arberc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-bnberc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-daierc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-linkerc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-pepeerc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-shiberc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-tusdtrc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcerc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdterc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-cbbtcerc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ondoerc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-polerc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usd1erc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-wxrperc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-arbarbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-daiarbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-etharbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-linkarbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-pepearbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcarbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcearbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-pyusdarbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdt0arbitrum.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-avaxpolygon.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-polpolygon.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcpolygon.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcepolygon.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtpolygon.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-wethpolygon.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-avaxavaxc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcavaxc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdceavaxc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtavaxc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-wavaxavaxc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-wetheavaxc.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-daibase.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ethbase.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcbase.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-cbbtcbase.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtbase.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-daioptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ethoptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-linkoptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-opoptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcoptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdceoptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtoptimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdt0optimism.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-eth.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-btctrc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-inrttrc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdttrc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usddtrc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-trx.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-pyusderc20.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-solsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-eurcsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-wbtcsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-wethsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-cbbtcsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-pyusdsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-trumpsol.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-monmonad.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdcmonad.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdt0monad.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdclinea.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-ethlinea.php'); // Include the payment gateway class
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-usdtlinea.php'); // Include the payment gateway class
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-dynamic.php'); // Dynamic individual-coin gateway (replaces the per-coin files)
 
 	// Conditional function that check if Checkout page use Checkout Blocks
 function paygatedottocryptogateway_is_checkout_block() {
@@ -195,4 +148,169 @@ function paygatedottocryptogateway_add_notice($paygatedottocryptogateway_message
         wc_add_notice(esc_html($paygatedottocryptogateway_message), $paygatedottocryptogateway_notice_type); 
     }
 }		
+
+/**
+ * Whether the given order belongs to one of this plugin's payment methods.
+ */
+function paygatedottocryptogateway_is_plugin_order($order)
+{
+    return $order instanceof WC_Order
+        && strpos((string) $order->get_payment_method(), 'paygatedotto-crypto-payment-gateway') === 0;
+}
+
+/**
+ * Remember which customer session placed a PayGate order.
+ *
+ * The payment provider confirms payment via a server-to-server callback and the
+ * customer is NOT redirected back to the store (no return URL / no thank-you
+ * page). So when payment completes we have no access to the buyer's session and
+ * cannot clear their cart unless we recorded the session key at checkout time.
+ * Runs in the customer's session for both classic and block checkout.
+ */
+function paygatedottocryptogateway_record_order_session($order)
+{
+    if (is_numeric($order)) {
+        $order = wc_get_order($order);
+    }
+    if (! paygatedottocryptogateway_is_plugin_order($order)) {
+        return;
+    }
+    if (function_exists('WC') && WC()->session) {
+        $paygatedottocryptogateway_session_key = WC()->session->get_customer_id();
+        if ($paygatedottocryptogateway_session_key) {
+            $order->update_meta_data('_paygatedotto_session_key', $paygatedottocryptogateway_session_key);
+            $order->save();
+        }
+    }
+}
+add_action('woocommerce_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
+add_action('woocommerce_store_api_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
+add_action('woocommerce_blocks_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
+
+/**
+ * Empty the cart belonging to a specific WooCommerce session key.
+ *
+ * Used from the payment-confirmation callback, which runs outside the buyer's
+ * session, so WC()->cart cannot be used directly. Clears the cart-related keys
+ * in the stored session row and busts the session cache.
+ */
+function paygatedottocryptogateway_clear_session_cart($paygatedottocryptogateway_session_key)
+{
+    global $wpdb;
+
+    if (empty($paygatedottocryptogateway_session_key)) {
+        return;
+    }
+
+    /*
+     * The table name is composed solely from $wpdb->prefix (a trusted,
+     * server-controlled value) and a hard-coded string literal — no
+     * user-supplied input is involved. esc_sql() is applied as an extra
+     * safety layer to satisfy static-analysis tools.
+     */
+    $paygatedottocryptogateway_sessions_table = esc_sql( $wpdb->prefix . 'woocommerce_sessions' );
+
+    $paygatedottocryptogateway_cache_group = defined('WC_SESSION_CACHE_GROUP') ? WC_SESSION_CACHE_GROUP : 'wc_session_id';
+    $paygatedottocryptogateway_cache_key   = 'paygatedotto_sess_' . md5($paygatedottocryptogateway_session_key);
+
+    $paygatedottocryptogateway_session_value = wp_cache_get($paygatedottocryptogateway_cache_key, $paygatedottocryptogateway_cache_group);
+
+    if (false === $paygatedottocryptogateway_session_value) {
+        // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+        $paygatedottocryptogateway_session_value = $wpdb->get_var(
+            $wpdb->prepare(
+                // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+                "SELECT session_value FROM {$paygatedottocryptogateway_sessions_table} WHERE session_key = %s",
+                $paygatedottocryptogateway_session_key
+            )
+        );
+        wp_cache_set($paygatedottocryptogateway_cache_key, $paygatedottocryptogateway_session_value, $paygatedottocryptogateway_cache_group, 300);
+    }
+
+    if (null === $paygatedottocryptogateway_session_value || false === $paygatedottocryptogateway_session_value) {
+        return;
+    }
+
+    $paygatedottocryptogateway_session_data = maybe_unserialize($paygatedottocryptogateway_session_value);
+    if (! is_array($paygatedottocryptogateway_session_data)) {
+        return;
+    }
+
+    // Each session value is itself serialised (see WC_Session::set()).
+    $paygatedottocryptogateway_empty = maybe_serialize(array());
+    foreach (array('cart', 'cart_totals', 'applied_coupons', 'coupon_discount_totals', 'coupon_discount_tax_totals', 'removed_cart_contents') as $paygatedottocryptogateway_key) {
+        if (isset($paygatedottocryptogateway_session_data[$paygatedottocryptogateway_key])) {
+            $paygatedottocryptogateway_session_data[$paygatedottocryptogateway_key] = $paygatedottocryptogateway_empty;
+        }
+    }
+
+    // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery
+    $wpdb->update(
+        $paygatedottocryptogateway_sessions_table,
+        array('session_value' => maybe_serialize($paygatedottocryptogateway_session_data)),
+        array('session_key' => $paygatedottocryptogateway_session_key)
+    );
+
+    // Invalidate our cache entry and bust WooCommerce's cached copy of the session.
+    wp_cache_delete($paygatedottocryptogateway_cache_key, $paygatedottocryptogateway_cache_group);
+    wp_cache_delete($paygatedottocryptogateway_session_key, $paygatedottocryptogateway_cache_group);
+}
+
+/**
+ * Clear the buyer's cart once a PayGate order is actually paid.
+ *
+ * Fires on payment_complete(), which this plugin's providers call from their
+ * payment-confirmation callbacks. Works for every checkout type (classic,
+ * shortcode, page builder, blocks). Unpaid/abandoned orders are never touched,
+ * so an abandoned checkout keeps its cart for an easy retry.
+ */
+function paygatedottocryptogateway_empty_cart_on_payment_complete($order_id)
+{
+    $order = wc_get_order($order_id);
+    if (! paygatedottocryptogateway_is_plugin_order($order)) {
+        return;
+    }
+
+    // Logged-in buyers: remove the persistent cart so it is not restored later.
+    $paygatedottocryptogateway_user_id = $order->get_customer_id();
+    if ($paygatedottocryptogateway_user_id) {
+        delete_user_meta($paygatedottocryptogateway_user_id, '_woocommerce_persistent_cart_' . get_current_blog_id());
+    }
+
+    // Clear the originating session's cart (covers guests and logged-in buyers).
+    paygatedottocryptogateway_clear_session_cart($order->get_meta('_paygatedotto_session_key'));
+
+    // If this ever runs inside the buyer's own session, clear the live cart too.
+    if (function_exists('WC') && WC()->cart) {
+        WC()->cart->empty_cart();
+    }
+}
+add_action('woocommerce_payment_complete', 'paygatedottocryptogateway_empty_cart_on_payment_complete', 20, 1);
+
+/**
+ * Safety net: if a store IS configured so the buyer lands on the order-received
+ * page, clear the cart there too — but only once the order is actually paid.
+ *
+ * This plugin keeps the buyer on the order-received page to display the payment
+ * address / QR code while the order is still pending, so the cart must NOT be
+ * emptied on first landing (an abandoned, unpaid checkout keeps its cart for an
+ * easy retry). Once payment is confirmed the cart is cleared by
+ * paygatedottocryptogateway_empty_cart_on_payment_complete(); this hook only
+ * covers the case where the buyer revisits the order-received page afterwards.
+ */
+add_action('woocommerce_thankyou', function ($order_id) {
+    if (! $order_id) {
+        return;
+    }
+    $order = wc_get_order($order_id);
+    if (! paygatedottocryptogateway_is_plugin_order($order)) {
+        return;
+    }
+    if (! $order->is_paid()) {
+        return;
+    }
+    if (WC()->cart && ! WC()->cart->is_empty()) {
+        WC()->cart->empty_cart();
+    }
+});
 ?>

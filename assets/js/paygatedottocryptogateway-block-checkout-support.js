@@ -1,53 +1,45 @@
-( function( blocks, i18n, element, components, editor ) {
-    const { registerPaymentMethod } = wc.wcBlocksRegistry;
-    // Use the localized data from PHP
-    const paygatedottocryptogateways = paygatedottocryptogatewayData || [];
+( function () {
+    const registry = window.wc && window.wc.wcBlocksRegistry;
+    const element = window.wp && window.wp.element;
+
+    if ( ! registry || ! element || typeof registry.registerPaymentMethod !== 'function' ) {
+        return;
+    }
+
+    const { registerPaymentMethod } = registry;
+    const { createElement } = element;
+    const paygatedottocryptogateways = window.paygatedottocryptogatewayData || [];
+
+    const buildContent = ( paygatedottocryptogateway ) =>
+        createElement(
+            'div',
+            { className: 'paygatedottocryptogateway-method-wrapper' },
+            createElement(
+                'div',
+                { className: 'paygatedottocryptogateway-method-label' },
+                '' + ( paygatedottocryptogateway.description || '' )
+            ),
+            paygatedottocryptogateway.icon_url
+                ? createElement( 'img', {
+                      src: paygatedottocryptogateway.icon_url,
+                      alt: paygatedottocryptogateway.label,
+                      className: 'paygatedottocryptogateway-method-icon',
+                  } )
+                : null
+        );
+
     paygatedottocryptogateways.forEach( ( paygatedottocryptogateway ) => {
-        registerPaymentMethod({
+        registerPaymentMethod( {
             name: paygatedottocryptogateway.id,
+            paymentMethodId: paygatedottocryptogateway.id,
             label: paygatedottocryptogateway.label,
             ariaLabel: paygatedottocryptogateway.label,
-            content: element.createElement(
-                'div',
-                { className: 'paygatedottocryptogateway-method-wrapper' },
-                element.createElement( 
-                    'div', 
-                    { className: 'paygatedottocryptogateway-method-label' },
-                    '' + paygatedottocryptogateway.description 
-                ),
-                paygatedottocryptogateway.icon_url ? element.createElement(
-                    'img', 
-                    { 
-                        src: paygatedottocryptogateway.icon_url,
-                        alt: paygatedottocryptogateway.label,
-                        className: 'paygatedottocryptogateway-method-icon'
-                    }
-                ) : null
-            ),
-            edit: element.createElement(
-                'div',
-                { className: 'paygatedottocryptogateway-method-wrapper' },
-                element.createElement( 
-                    'div', 
-                    { className: 'paygatedottocryptogateway-method-label' },
-                    '' + paygatedottocryptogateway.description 
-                ),
-                paygatedottocryptogateway.icon_url ? element.createElement(
-                    'img', 
-                    { 
-                        src: paygatedottocryptogateway.icon_url,
-                        alt: paygatedottocryptogateway.label,
-                        className: 'paygatedottocryptogateway-method-icon'
-                    }
-                ) : null
-            ),
             canMakePayment: () => true,
-        });
-    });
-} )(
-    window.wp.blocks,
-    window.wp.i18n,
-    window.wp.element,
-    window.wp.components,
-    window.wp.blockEditor
-);
+            content: buildContent( paygatedottocryptogateway ),
+            edit: buildContent( paygatedottocryptogateway ),
+            supports: {
+                features: [ 'products' ],
+            },
+        } );
+    } );
+} )();

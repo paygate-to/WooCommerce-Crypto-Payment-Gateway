@@ -3,11 +3,11 @@ Contributors: paygatedotto
 Donate link: https://paygate.to/
 Tags: woocommerce,payment,crypto,gateway
 Requires at least: 5.8
-Tested up to: 6.9
-Stable tag: 1.1.3
+Tested up to: 7.0
+Stable tag: 1.1.4
 Requires PHP: 7.2
 WC requires at least: 5.8
-WC tested up to: 10.4.3
+WC tested up to: 10.8.1
 License: GPLv3
 License URI: http://www.gnu.org/licenses/gpl-3.0.html
 
@@ -83,6 +83,12 @@ Our plugin is tested to mark orders as processing automatically after payment. Y
 5. screenshot-5.png
 
 == Changelog ==
+
+= V1.1.4 =
+
+* Replaced the ~90 individual per-coin gateways with a single dynamic gateway that fetches the coin list from the PayGate API. Enable the coins you want and set a payout wallet per coin from one settings screen; enabled coins are offered at checkout (classic and blocks) with the QR code shown on your own site. The Multicoin gateway is unchanged.
+* Fix WooCommerce blocks cart page bug fake dummy items added to cart.
+* Checkout JS bug fix.
 
 = V1.1.3 =
 
