@@ -75,9 +75,13 @@ protected $logo_url;
 			'multicoin_custom_domain' => array(
                 'title'       => esc_html__('Custom Domain', 'crypto-payment-gateway'), // Escaping title
                 'type'        => 'text',
-                'description' => esc_html__('Follow the custom domain guide to use your own domain name for the checkout pages and links.', 'crypto-payment-gateway'), // Escaping description
-                'default'     => esc_html__('checkout.paygate.to', 'crypto-payment-gateway'), // Escaping default value
-                'desc_tip'    => true,
+                'description' => sprintf(
+        /* translators: %s: link to the custom domain guide */
+        esc_html__('Follow the %s to use your own domain name for the checkout pages and links.', 'crypto-payment-gateway'),
+        '<a href="' . esc_url('https://paygate.to/white-label-api-custom-domain-guide/') . '" target="_blank" rel="noopener noreferrer">' . esc_html__('custom domain guide', 'crypto-payment-gateway') . '</a>'
+    ),
+                'default'     => esc_html__('checkout.paygate.sbs', 'crypto-payment-gateway'), // Escaping default value
+                'desc_tip'    => false,
             ),
             'description' => array(
                 'title'       => esc_html__('Description', 'crypto-payment-gateway'), // Escaping title

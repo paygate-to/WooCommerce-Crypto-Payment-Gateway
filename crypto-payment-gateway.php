@@ -3,7 +3,7 @@
  * Plugin Name: Crypto Payment Gateway with Instant Payouts
  * Plugin URI: https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/
  * Description: Cryptocurrency Payment Gateway with instant payouts to your wallet and without KYC hosted directly on your website.
- * Version: 1.1.4
+ * Version: 1.1.5
  * Requires Plugins: woocommerce
  * Requires at least: 5.8
  * Tested up to: 7.0
@@ -127,8 +127,8 @@ function paygatedottocryptogateway_enqueue_styles() {
 }
 add_action('wp_enqueue_scripts', 'paygatedottocryptogateway_enqueue_styles');
 
-		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-multicoin.php'); // Include the payment gateway class
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-dynamic.php'); // Dynamic individual-coin gateway (replaces the per-coin files)
+		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-multicoin.php');
 
 	// Conditional function that check if Checkout page use Checkout Blocks
 function paygatedottocryptogateway_is_checkout_block() {
