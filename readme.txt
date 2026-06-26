@@ -33,7 +33,7 @@ Accept crypto payments directly on your WooCommerce website, each order is assig
 * Please check our website for the minimum transaction amount for each cryptocurrency.
 * Crypto icons on checkout page and QR code.
 * Multi-currency support.
-* Supported networks: BTC - BCH - Monero (XMR) - Zcash (ZEC) - LTC - doge - ETH - TRC20 - ERC20 - BEP20 - Arbitrum - Polygon - AVAX-C - Optimism - Base - Solana - Monad - Linea [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
+* Supported networks: BTC - BCH - Monero (XMR) - Zcash (ZEC) - LTC - doge - ETH - PYUSD - TRC20 - ERC20 - BEP20 - Arbitrum - Polygon - AVAX-C - Optimism - Base - Solana - Monad - Linea [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
 * Optional hosted multi-coin mode to enable all cryptocurrencies at one enabled payment method with custom domain name option support.
 
 Minimum allowed order amount varies per crypto coin you can [check the full list of supported coins and minimum order value per coin](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/#minimumorder).
