@@ -657,6 +657,13 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
                 $order->add_meta_data('paygatedotto_dynamic_qrcode', $paygatedottocryptogateway_dynamic_genqrcode_pngimg, true);
                 $order->add_meta_data('paygatedotto_dynamic_nonce', $paygatedottocryptogateway_dynamic_nonce, true);
                 $order->add_meta_data('paygatedotto_dynamic_status_nonce', $paygatedottocryptogateway_dynamic_status_nonce, true);
+                // Signature verification: remember the callback URL WE registered with
+                // PayGate (that exact string is what PayGate signs, with its payment
+                // parameters appended), and mark this order as requiring a signed
+                // callback. Orders created before this plugin version carry no such
+                // mark, so their pending callbacks are still accepted unsigned.
+                $order->add_meta_data('paygatedotto_dynamic_signature_base', $paygatedottocryptogateway_dynamic_callback, true);
+                $order->add_meta_data('paygatedotto_dynamic_signature_required', 'yes', true);
                 $order->save();
             } else {
                 paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Payment could not be processed, please try again (wallet address error)', 'crypto-payment-gateway'), 'error');
@@ -796,6 +803,14 @@ function paygatedottocryptogateway_dynamic_change_order_status_callback($request
     // Verify nonce.
     if (empty($paygatedottocryptogateway_dynamic_getnonce) || $order->get_meta('paygatedotto_dynamic_nonce', true) !== $paygatedottocryptogateway_dynamic_getnonce) {
         return new WP_Error('invalid_nonce', __('Invalid nonce.', 'crypto-payment-gateway'), array('status' => 403));
+    }
+
+    // Verify PayGate's RSA signature over the exact callback URL before trusting
+    // any payment parameter. value_coin below is caller-supplied, so without this
+    // check a forged request could complete an unpaid order.
+    $paygatedottocryptogateway_dynamic_sig_error = paygatedottocryptogateway_signature_guard($request, $order, 'paygatedotto_dynamic');
+    if ($paygatedottocryptogateway_dynamic_sig_error instanceof WP_Error) {
+        return $paygatedottocryptogateway_dynamic_sig_error;
     }
 
     if ($order && !in_array($order->get_status(), array('processing', 'completed'), true) && 'paygatedotto-crypto-payment-gateway-dynamic' === $order->get_payment_method()) {

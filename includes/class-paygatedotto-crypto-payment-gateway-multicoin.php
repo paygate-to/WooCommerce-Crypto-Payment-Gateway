@@ -363,6 +363,13 @@ if (is_wp_error($paygatedottocryptogateway_multicoinmulticoin_gen_wallet)) {
 	$order->add_meta_data('paygatedotto_multicoin_currency', $paygatedottocryptogateway_multicoinmulticoin_currency, true);
 	$order->add_meta_data('paygatedotto_multicoin_nonce', $paygatedottocryptogateway_multicoinmulticoin_nonce, true);
 	$order->add_meta_data('paygatedotto_multicoin_fees_value_settings', $paygatedottocryptogateway_multicoinmulticoin_fees_value, true);
+	// Signature verification: remember the callback URL WE registered with PayGate
+	// (that exact string is what PayGate signs, with its payment parameters
+	// appended), and mark this order as requiring a signed callback. Orders created
+	// before this plugin version carry no such mark, so their pending callbacks are
+	// still accepted unsigned.
+	$order->add_meta_data('paygatedotto_multicoin_signature_base', $paygatedottocryptogateway_multicoinmulticoin_callback, true);
+	$order->add_meta_data('paygatedotto_multicoin_signature_required', 'yes', true);
     $order->save();
     } else {
         paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Payment could not be processed, please try again (wallet address error)', 'crypto-payment-gateway'), 'error');
@@ -461,6 +468,14 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
 	// Verify nonce
     if ( empty( $paygatedottocryptogateway_multicoingetnonce ) || $order->get_meta('paygatedotto_multicoin_nonce', true) !== $paygatedottocryptogateway_multicoingetnonce ) {
         return new WP_Error( 'invalid_nonce', __( 'Invalid nonce.', 'crypto-payment-gateway' ), array( 'status' => 403 ) );
+    }
+
+    // Verify PayGate's RSA signature over the exact callback URL before trusting
+    // any payment parameter. value_coin below is caller-supplied, so without this
+    // check a forged request could complete an unpaid order.
+    $paygatedottocryptogateway_multicoin_sig_error = paygatedottocryptogateway_signature_guard( $request, $order, 'paygatedotto_multicoin' );
+    if ( $paygatedottocryptogateway_multicoin_sig_error instanceof WP_Error ) {
+        return $paygatedottocryptogateway_multicoin_sig_error;
     }
 
     // Check if the order is pending and payment method is 'paygatedotto-crypto-payment-gateway-bch'
