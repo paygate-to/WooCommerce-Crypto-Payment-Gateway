@@ -50,6 +50,7 @@ protected $logo_url;
     'trc20'        => sanitize_text_field($this->get_option('multicoin_wallet_trc20')),
     'xmr'          => sanitize_text_field($this->get_option('multicoin_wallet_xmr')),
     'zec'          => sanitize_text_field($this->get_option('multicoin_wallet_zec')),
+    'ton'          => sanitize_text_field($this->get_option('multicoin_wallet_ton')),
 );
 		$this->multicoin_tolerance_percentage = sanitize_text_field($this->get_option('multicoin_tolerance_percentage'));
 		$this->multicoin_custom_domain = rtrim(str_replace(['https://','http://'], '', sanitize_text_field($this->get_option('multicoin_custom_domain'))), '/');
@@ -146,6 +147,12 @@ protected $logo_url;
     'description' => esc_html__('Insert your Zcash wallet address.', 'crypto-payment-gateway'),
     'desc_tip'    => true,
 ),
+'multicoin_wallet_ton' => array(
+    'title'       => esc_html__('TON Wallet Address (Toncoin/USDT)', 'crypto-payment-gateway'),
+    'type'        => 'text',
+    'description' => esc_html__('Insert your TON wallet address. Receives both Toncoin and USDT on TON.', 'crypto-payment-gateway'),
+    'desc_tip'    => true,
+),
             'multicoin_tolerance_percentage' => array(
                 'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
                 'type'        => 'select',
@@ -226,6 +233,7 @@ public function process_admin_options() {
         'multicoin_wallet_trc20',
         'multicoin_wallet_xmr',
         'multicoin_wallet_zec',
+        'multicoin_wallet_ton',
     ];
 
     $has_one_filled = false;
@@ -311,6 +319,10 @@ public function process_admin_options() {
 
     if ( isset( $this->multicoin_wallet_address['zec'] ) && '' !== $this->multicoin_wallet_address['zec'] ) {
         $paygatedottocryptogateway_multicoindecoded_payload['zec'] = $this->multicoin_wallet_address['zec'];
+    }
+
+    if ( isset( $this->multicoin_wallet_address['ton'] ) && '' !== $this->multicoin_wallet_address['ton'] ) {
+        $paygatedottocryptogateway_multicoindecoded_payload['ton'] = $this->multicoin_wallet_address['ton'];
     }
 		
 			$paygatedottocryptogateway_multicoinjson_payload = json_encode($paygatedottocryptogateway_multicoindecoded_payload);
