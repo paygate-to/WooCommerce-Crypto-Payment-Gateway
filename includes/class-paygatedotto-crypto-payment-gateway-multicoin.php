@@ -339,7 +339,7 @@ public function process_admin_options() {
 		}
 		
 $paygatedottocryptogateway_multicoinmulticoin_gen_wallet = wp_remote_post(
-    'https://api.paygate.to/crypto/multi-hosted-wallet.php',
+    'https://' . $this->customprovider_custom_domain . '/crypto/multi-hosted-wallet.php',
     array(
         'timeout' => 30,
         'headers' => array(
@@ -494,7 +494,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-multicoin' === $order->get_payment_method() ) {
 	$paygatedottocryptogateway_multicoincurrency      = $order->get_meta( 'paygatedotto_multicoin_currency', true );	
  // Fetch coin pricing from PayGate
-    $paygatedottocryptogateway_multicoininfo_url = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/info.php';
+    $paygatedottocryptogateway_multicoininfo_url = 'https://' . $this->customprovider_custom_domain . '/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/info.php';
     $paygatedottocryptogateway_multicoinresponse = wp_remote_get( $paygatedottocryptogateway_multicoininfo_url, array( 'timeout' => 30 ) );
 
     if ( is_wp_error( $paygatedottocryptogateway_multicoinresponse ) ) {
@@ -533,7 +533,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
 if ($paygatedottocryptogateway_multicoin_fee_read_settings === '1') {
 			
 		 // Fetch coin fees from PayGate
-    $paygatedottocryptogateway_multicoinfeesinfo_url = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/fees.php';
+    $paygatedottocryptogateway_multicoinfeesinfo_url = 'https://' . $this->customprovider_custom_domain . '/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/fees.php';
     $paygatedottocryptogateway_multicoinfeesresponse = wp_remote_get( $paygatedottocryptogateway_multicoinfeesinfo_url, array( 'timeout' => 30 ) );
 	
 	
