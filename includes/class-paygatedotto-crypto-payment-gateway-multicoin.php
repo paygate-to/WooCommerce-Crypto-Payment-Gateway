@@ -16,6 +16,7 @@ protected $multicoin_wallet_address;
 protected $multicoin_blockchain_fees;
 protected $multicoin_tolerance_percentage;
 protected $multicoin_custom_domain;
+protected $multicoin_custom_api_domain;
 protected $icon_url;
 protected $background_color;
 protected $button_color;
@@ -53,7 +54,8 @@ protected $logo_url;
     'ton'          => sanitize_text_field($this->get_option('multicoin_wallet_ton')),
 );
 		$this->multicoin_tolerance_percentage = sanitize_text_field($this->get_option('multicoin_tolerance_percentage'));
-		$this->multicoin_custom_domain = rtrim(str_replace(['https://','http://'], '', sanitize_text_field($this->get_option('multicoin_custom_domain'))), '/');
+		$this->multicoin_custom_domain = paygatedottocryptogateway_sanitize_domain($this->get_option('multicoin_custom_domain'), PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_CHECKOUT_DOMAIN);
+		$this->multicoin_custom_api_domain = paygatedottocryptogateway_sanitize_domain($this->get_option('multicoin_custom_api_domain'), PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN);
 		$this->multicoin_blockchain_fees = $this->get_option('multicoin_blockchain_fees');
         $this->icon_url     = sanitize_url($this->get_option('icon_url'));
 
@@ -84,6 +86,18 @@ protected $logo_url;
         '<a href="' . esc_url('https://paygate.to/white-label-api-custom-domain-guide/') . '" target="_blank" rel="noopener noreferrer">' . esc_html__('custom domain guide', 'crypto-payment-gateway') . '</a>'
     ),
                 'default'     => esc_html__('checkout.paygate.sbs', 'crypto-payment-gateway'), // Escaping default value
+                'desc_tip'    => false,
+            ),
+            'multicoin_custom_api_domain' => array(
+                'title'       => esc_html__('Custom API Domain', 'crypto-payment-gateway'), // Escaping title
+                'type'        => 'text',
+                'description' => sprintf(
+        /* translators: %s: link to the custom domain guide */
+        esc_html__('Follow the %s to use your own domain name for all API calls (coin list, currency conversion, fees, wallet and QR code generation, payment verification). Leave as api.paygate.to to use the default API.', 'crypto-payment-gateway'),
+        '<a href="' . esc_url('https://paygate.to/white-label-api-custom-domain-guide/') . '" target="_blank" rel="noopener noreferrer">' . esc_html__('custom domain guide', 'crypto-payment-gateway') . '</a>'
+    ),
+                'default'     => PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN,
+                'placeholder' => PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN,
                 'desc_tip'    => false,
             ),
             'description' => array(
@@ -207,6 +221,20 @@ protected $logo_url;
         );
     }
 	
+    /**
+     * Normalise the checkout domain on save (WC_Settings_API validate_{key}_field hook).
+     */
+    public function validate_multicoin_custom_domain_field($key, $value) {
+        return paygatedottocryptogateway_sanitize_domain(is_null($value) ? '' : wp_unslash($value), PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_CHECKOUT_DOMAIN);
+    }
+
+    /**
+     * Normalise the API domain on save (WC_Settings_API validate_{key}_field hook).
+     */
+    public function validate_multicoin_custom_api_domain_field($key, $value) {
+        return paygatedottocryptogateway_sanitize_domain(is_null($value) ? '' : wp_unslash($value), PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN);
+    }
+
 	 // Add this method to validate the wallet address in wp-admin
 public function process_admin_options() {
     // Verify nonce
@@ -339,7 +367,7 @@ public function process_admin_options() {
 		}
 		
 $paygatedottocryptogateway_multicoinmulticoin_gen_wallet = wp_remote_post(
-    'https://api.paygate.to/crypto/multi-hosted-wallet.php',
+    paygatedottocryptogateway_api_url($this->multicoin_custom_api_domain, 'crypto/multi-hosted-wallet.php'),
     array(
         'timeout' => 30,
         'headers' => array(
@@ -494,7 +522,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
     if ( $order && !in_array($order->get_status(), ['processing', 'completed'], true) && 'paygatedotto-crypto-payment-gateway-multicoin' === $order->get_payment_method() ) {
 	$paygatedottocryptogateway_multicoincurrency      = $order->get_meta( 'paygatedotto_multicoin_currency', true );	
  // Fetch coin pricing from PayGate
-    $paygatedottocryptogateway_multicoininfo_url = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/info.php';
+    $paygatedottocryptogateway_multicoininfo_url = paygatedottocryptogateway_api_url(paygatedottocryptogateway_get_api_domain('paygatedotto-crypto-payment-gateway-multicoin', 'multicoin_custom_api_domain'), 'crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/info.php');
     $paygatedottocryptogateway_multicoinresponse = wp_remote_get( $paygatedottocryptogateway_multicoininfo_url, array( 'timeout' => 30 ) );
 
     if ( is_wp_error( $paygatedottocryptogateway_multicoinresponse ) ) {
@@ -533,7 +561,7 @@ $paygatedottocryptogateway_multicoincoin_label = str_replace( '_', '/', strtoupp
 if ($paygatedottocryptogateway_multicoin_fee_read_settings === '1') {
 			
 		 // Fetch coin fees from PayGate
-    $paygatedottocryptogateway_multicoinfeesinfo_url = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/fees.php';
+    $paygatedottocryptogateway_multicoinfeesinfo_url = paygatedottocryptogateway_api_url(paygatedottocryptogateway_get_api_domain('paygatedotto-crypto-payment-gateway-multicoin', 'multicoin_custom_api_domain'), 'crypto/' . strtolower($paygatedottocryptogateway_multicoincoin_label) . '/fees.php');
     $paygatedottocryptogateway_multicoinfeesresponse = wp_remote_get( $paygatedottocryptogateway_multicoinfeesinfo_url, array( 'timeout' => 30 ) );
 	
 	

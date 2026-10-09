@@ -4,7 +4,7 @@
  *
  * Replaces the (previously ~90) per-coin gateway files with a single gateway
  * whose accepted coins are fetched live from the PayGate coin list API
- * (https://api.paygate.to/crypto/info.php). The admin enables individual coins
+ * (crypto/info.php on the configured API domain, api.paygate.to by default). The admin enables individual coins
  * (each with its own payout wallet) from one settings screen; the storefront
  * shows the enabled coins as selectable options (classic + block checkout) and
  * the QR code / payment address is displayed on the merchant's own site exactly
@@ -60,7 +60,7 @@ function paygatedottocryptogateway_dynamic_get_coin_map($force = false) {
     }
 
     $paygatedottocryptogateway_dynamic_response = wp_remote_get(
-        'https://api.paygate.to/crypto/info.php',
+        paygatedottocryptogateway_api_url(paygatedottocryptogateway_get_api_domain('paygatedotto-crypto-payment-gateway-dynamic', 'dynamic_custom_api_domain'), 'crypto/info.php'),
         array('timeout' => 30)
     );
 
@@ -157,6 +157,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
         protected $dynamic_tolerance_percentage;
         protected $dynamic_blockchain_fees;
         protected $dynamic_coin_config;
+        protected $dynamic_custom_api_domain;
         protected $icon_url;
 
         public function __construct() {
@@ -175,6 +176,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
             $this->dynamic_tolerance_percentage = sanitize_text_field($this->get_option('dynamic_tolerance_percentage'));
             $this->dynamic_blockchain_fees      = $this->get_option('dynamic_blockchain_fees');
             $this->icon_url                     = sanitize_url($this->get_option('icon_url'));
+            $this->dynamic_custom_api_domain    = paygatedottocryptogateway_sanitize_domain($this->get_option('dynamic_custom_api_domain'), PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN);
 
             $paygatedottocryptogateway_dynamic_stored_config = $this->get_option('coin_config');
             $this->dynamic_coin_config = is_array($paygatedottocryptogateway_dynamic_stored_config) ? $paygatedottocryptogateway_dynamic_stored_config : array();
@@ -204,6 +206,18 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
                     'description' => esc_html__('Payment method description that users will see during checkout.', 'crypto-payment-gateway'),
                     'default'     => esc_html__('Pay with your preferred cryptocurrency', 'crypto-payment-gateway'),
                     'desc_tip'    => true,
+                ),
+                'dynamic_custom_api_domain' => array(
+                    'title'       => esc_html__('Custom API Domain', 'crypto-payment-gateway'), // Escaping title
+                    'type'        => 'text',
+                    'description' => sprintf(
+        /* translators: %s: link to the custom domain guide */
+        esc_html__('Follow the %s to use your own domain name for all API calls (coin list, currency conversion, fees, wallet and QR code generation, payment verification). Leave as api.paygate.to to use the default API.', 'crypto-payment-gateway'),
+        '<a href="' . esc_url('https://paygate.to/white-label-api-custom-domain-guide/') . '" target="_blank" rel="noopener noreferrer">' . esc_html__('custom domain guide', 'crypto-payment-gateway') . '</a>'
+    ),
+                    'default'     => PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN,
+                    'placeholder' => PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN,
+                    'desc_tip'    => false,
                 ),
                 'dynamic_tolerance_percentage' => array(
                     'title'       => esc_html__('Underpaid Tolerance', 'crypto-payment-gateway'),
@@ -309,6 +323,13 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
             </tr>
             <?php
             return ob_get_clean();
+        }
+
+        /**
+         * Normalise the API domain on save (WC_Settings_API validate_{key}_field hook).
+         */
+        public function validate_dynamic_custom_api_domain_field($key, $value) {
+            return paygatedottocryptogateway_sanitize_domain(is_null($value) ? '' : wp_unslash($value), PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN);
         }
 
         /**
@@ -526,7 +547,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
                 : wp_create_nonce('paygatedottocryptogateway_dynamic_status_nonce_' . $paygatedottocryptogateway_dynamic_email);
 
             // 1) Convert the fiat order total into the selected coin.
-            $paygatedottocryptogateway_dynamic_response = wp_remote_get('https://api.paygate.to/crypto/' . $paygatedottocryptogateway_dynamic_path . '/convert.php?value=' . $paygatedottocryptogateway_dynamic_total . '&from=' . strtolower($paygatedottocryptogateway_dynamic_currency), array('timeout' => 30));
+            $paygatedottocryptogateway_dynamic_response = wp_remote_get(paygatedottocryptogateway_api_url($this->dynamic_custom_api_domain, 'crypto/' . $paygatedottocryptogateway_dynamic_path . '/convert.php', array('value' => $paygatedottocryptogateway_dynamic_total, 'from' => strtolower($paygatedottocryptogateway_dynamic_currency))), array('timeout' => 30));
 
             if (is_wp_error($paygatedottocryptogateway_dynamic_response)) {
                 paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Payment could not be processed due to failed currency conversion process, please try again', 'crypto-payment-gateway'), 'error');
@@ -546,7 +567,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
 
             // 2) Optionally add estimated blockchain fees (mirrors individual gateways).
             if ($this->dynamic_blockchain_fees === 'yes') {
-                $paygatedottocryptogateway_dynamic_feesest_response = wp_remote_get('https://api.paygate.to/crypto/' . $paygatedottocryptogateway_dynamic_path . '/fees.php', array('timeout' => 30));
+                $paygatedottocryptogateway_dynamic_feesest_response = wp_remote_get(paygatedottocryptogateway_api_url($this->dynamic_custom_api_domain, 'crypto/' . $paygatedottocryptogateway_dynamic_path . '/fees.php'), array('timeout' => 30));
 
                 if (is_wp_error($paygatedottocryptogateway_dynamic_feesest_response)) {
                     paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Failed to get estimated fees, please try again', 'crypto-payment-gateway'), 'error');
@@ -564,7 +585,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
                     return null;
                 }
 
-                $paygatedottocryptogateway_dynamic_revfeesest_response = wp_remote_get('https://api.paygate.to/crypto/' . $paygatedottocryptogateway_dynamic_path . '/convert.php?value=' . $paygatedottocryptogateway_dynamic_feesest_reference_total . '&from=usd', array('timeout' => 30));
+                $paygatedottocryptogateway_dynamic_revfeesest_response = wp_remote_get(paygatedottocryptogateway_api_url($this->dynamic_custom_api_domain, 'crypto/' . $paygatedottocryptogateway_dynamic_path . '/convert.php', array('value' => $paygatedottocryptogateway_dynamic_feesest_reference_total, 'from' => 'usd')), array('timeout' => 30));
 
                 if (is_wp_error($paygatedottocryptogateway_dynamic_revfeesest_response)) {
                     paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Payment could not be processed due to failed currency conversion process, please try again', 'crypto-payment-gateway'), 'error');
@@ -586,7 +607,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
             }
 
             // 3) Enforce the coin minimum.
-            $paygatedottocryptogateway_dynamic_response_minimum = wp_remote_get('https://api.paygate.to/crypto/' . $paygatedottocryptogateway_dynamic_path . '/info.php', array('timeout' => 30));
+            $paygatedottocryptogateway_dynamic_response_minimum = wp_remote_get(paygatedottocryptogateway_api_url($this->dynamic_custom_api_domain, 'crypto/' . $paygatedottocryptogateway_dynamic_path . '/info.php'), array('timeout' => 30));
             if (is_wp_error($paygatedottocryptogateway_dynamic_response_minimum)) {
                 paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Payment could not be processed due to failed minimum retrieval process, please try again', 'crypto-payment-gateway'), 'error');
                 return null;
@@ -605,7 +626,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
             }
 
             // 4) Generate the unique pay-in address for this coin + payout wallet.
-            $paygatedottocryptogateway_dynamic_gen_wallet = wp_remote_get('https://api.paygate.to/crypto/' . $paygatedottocryptogateway_dynamic_path . '/wallet.php?address=' . rawurlencode($paygatedottocryptogateway_dynamic_wallet) . '&callback=' . urlencode($paygatedottocryptogateway_dynamic_callback), array('timeout' => 30));
+            $paygatedottocryptogateway_dynamic_gen_wallet = wp_remote_get(paygatedottocryptogateway_api_url($this->dynamic_custom_api_domain, 'crypto/' . $paygatedottocryptogateway_dynamic_path . '/wallet.php', array('address' => $paygatedottocryptogateway_dynamic_wallet, 'callback' => $paygatedottocryptogateway_dynamic_callback)), array('timeout' => 30));
 
             if (is_wp_error($paygatedottocryptogateway_dynamic_gen_wallet)) {
                 paygatedottocryptogateway_add_notice(__('Wallet error:', 'crypto-payment-gateway') . __('Payment could not be processed due to incorrect payout wallet settings, please contact website admin', 'crypto-payment-gateway'), 'error');
@@ -621,7 +642,7 @@ function paygatedottocryptogateway_init_dynamic_gateway() {
                 $paygatedottocryptogateway_dynamic_gen_callback  = sanitize_url($paygatedottocryptogateway_dynamic_wallet_decbody['callback_url']);
 
                 // 5) Generate the QR code for the pay-in address.
-                $paygatedottocryptogateway_dynamic_genqrcode_response = wp_remote_get('https://api.paygate.to/crypto/' . $paygatedottocryptogateway_dynamic_path . '/qrcode.php?address=' . $paygatedottocryptogateway_dynamic_gen_addressIn, array('timeout' => 30));
+                $paygatedottocryptogateway_dynamic_genqrcode_response = wp_remote_get(paygatedottocryptogateway_api_url($this->dynamic_custom_api_domain, 'crypto/' . $paygatedottocryptogateway_dynamic_path . '/qrcode.php', array('address' => $paygatedottocryptogateway_dynamic_gen_addressIn)), array('timeout' => 30));
 
                 if (is_wp_error($paygatedottocryptogateway_dynamic_genqrcode_response)) {
                     paygatedottocryptogateway_add_notice(__('Payment error:', 'crypto-payment-gateway') . __('Unable to generate QR code', 'crypto-payment-gateway'), 'error');
@@ -832,7 +853,7 @@ function paygatedottocryptogateway_dynamic_change_order_status_callback($request
 
         // Build the API path the same way the Multicoin callback does.
         $paygatedottocryptogateway_dynamic_coin_label = str_replace('_', '/', strtoupper($paygatedottocryptogateway_dynamic_paid_coin_name));
-        $paygatedottocryptogateway_dynamic_info_url   = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_dynamic_coin_label) . '/info.php';
+        $paygatedottocryptogateway_dynamic_info_url   = paygatedottocryptogateway_api_url(paygatedottocryptogateway_get_api_domain('paygatedotto-crypto-payment-gateway-dynamic', 'dynamic_custom_api_domain'), 'crypto/' . strtolower($paygatedottocryptogateway_dynamic_coin_label) . '/info.php');
         $paygatedottocryptogateway_dynamic_response   = wp_remote_get($paygatedottocryptogateway_dynamic_info_url, array('timeout' => 30));
 
         if (is_wp_error($paygatedottocryptogateway_dynamic_response)) {
@@ -858,7 +879,7 @@ function paygatedottocryptogateway_dynamic_change_order_status_callback($request
         $paygatedottocryptogateway_dynamic_minimum_initial_required = $paygatedottocryptogateway_dynamic_expected_fiat * $paygatedottocryptogateway_dynamic_tolerance_percent;
 
         if ($paygatedottocryptogateway_dynamic_fee_read_settings === '1') {
-            $paygatedottocryptogateway_dynamic_feesinfo_url = 'https://api.paygate.to/crypto/' . strtolower($paygatedottocryptogateway_dynamic_coin_label) . '/fees.php';
+            $paygatedottocryptogateway_dynamic_feesinfo_url = paygatedottocryptogateway_api_url(paygatedottocryptogateway_get_api_domain('paygatedotto-crypto-payment-gateway-dynamic', 'dynamic_custom_api_domain'), 'crypto/' . strtolower($paygatedottocryptogateway_dynamic_coin_label) . '/fees.php');
             $paygatedottocryptogateway_dynamic_feesresponse = wp_remote_get($paygatedottocryptogateway_dynamic_feesinfo_url, array('timeout' => 30));
 
             $paygatedottocryptogateway_dynamic_feesbody      = wp_remote_retrieve_body($paygatedottocryptogateway_dynamic_feesresponse);

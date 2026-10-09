@@ -3,7 +3,7 @@
  * Plugin Name: Crypto Payment Gateway with Instant Payouts
  * Plugin URI: https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/
  * Description: Cryptocurrency Payment Gateway with instant payouts to your wallet and without KYC hosted directly on your website.
- * Version: 1.1.9
+ * Version: 1.2.1
  * Requires Plugins: woocommerce
  * Requires at least: 5.8
  * Tested up to: 7.1.2
@@ -126,6 +126,87 @@ function paygatedottocryptogateway_enqueue_styles() {
     }
 }
 add_action('wp_enqueue_scripts', 'paygatedottocryptogateway_enqueue_styles');
+
+/**
+ * Default PayGate hosts, used when a gateway's custom domain setting is empty.
+ */
+if (!defined('PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN')) {
+    define('PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN', 'api.paygate.to');
+}
+if (!defined('PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_CHECKOUT_DOMAIN')) {
+    define('PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_CHECKOUT_DOMAIN', 'checkout.paygate.sbs');
+}
+
+/**
+ * Normalise a custom domain setting to a bare host (optionally with a path).
+ *
+ * Strips the scheme, surrounding whitespace and trailing slashes, so admins can
+ * paste either "api.example.com" or "https://api.example.com/". Falls back to
+ * the given default when the value is empty or not a valid host.
+ *
+ * @param string $paygatedottocryptogateway_domain  Raw setting value.
+ * @param string $paygatedottocryptogateway_default Fallback host.
+ * @return string
+ */
+function paygatedottocryptogateway_sanitize_domain($paygatedottocryptogateway_domain, $paygatedottocryptogateway_default = '') {
+    $paygatedottocryptogateway_domain = trim(sanitize_text_field((string) $paygatedottocryptogateway_domain));
+    $paygatedottocryptogateway_domain = preg_replace('#^https?://#i', '', $paygatedottocryptogateway_domain);
+    $paygatedottocryptogateway_domain = rtrim($paygatedottocryptogateway_domain, '/');
+
+    if ('' === $paygatedottocryptogateway_domain) {
+        return $paygatedottocryptogateway_default;
+    }
+
+    $paygatedottocryptogateway_host = wp_parse_url('https://' . $paygatedottocryptogateway_domain, PHP_URL_HOST);
+    if (empty($paygatedottocryptogateway_host) || !preg_match('/^[A-Za-z0-9.-]+$/', $paygatedottocryptogateway_host)) {
+        return $paygatedottocryptogateway_default;
+    }
+
+    return $paygatedottocryptogateway_domain;
+}
+
+/**
+ * Read a gateway's configured API domain outside the gateway instance (e.g. in
+ * the REST payment callback or the coin list helper), falling back to the
+ * default PayGate API host.
+ *
+ * @param string $paygatedottocryptogateway_gateway_id Gateway id.
+ * @param string $paygatedottocryptogateway_option_key Settings key holding the API domain.
+ * @return string
+ */
+function paygatedottocryptogateway_get_api_domain($paygatedottocryptogateway_gateway_id, $paygatedottocryptogateway_option_key) {
+    $paygatedottocryptogateway_settings = get_option('woocommerce_' . $paygatedottocryptogateway_gateway_id . '_settings', array());
+    $paygatedottocryptogateway_value    = (is_array($paygatedottocryptogateway_settings) && isset($paygatedottocryptogateway_settings[$paygatedottocryptogateway_option_key]))
+        ? $paygatedottocryptogateway_settings[$paygatedottocryptogateway_option_key]
+        : '';
+
+    return paygatedottocryptogateway_sanitize_domain($paygatedottocryptogateway_value, PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN);
+}
+
+/**
+ * Build a PayGate API URL on the configured (custom or default) API domain.
+ *
+ * Query values are RFC 3986 encoded via add_query_arg() and the final URL is
+ * passed through esc_url_raw() before being used in wp_remote_get()/wp_remote_post().
+ *
+ * @param string $paygatedottocryptogateway_domain Sanitised API domain.
+ * @param string $paygatedottocryptogateway_path   Endpoint path, e.g. "crypto/btc/wallet.php".
+ * @param array  $paygatedottocryptogateway_args   Query arguments (unencoded).
+ * @return string
+ */
+function paygatedottocryptogateway_api_url($paygatedottocryptogateway_domain, $paygatedottocryptogateway_path, $paygatedottocryptogateway_args = array()) {
+    if ('' === (string) $paygatedottocryptogateway_domain) {
+        $paygatedottocryptogateway_domain = PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN;
+    }
+
+    $paygatedottocryptogateway_url = 'https://' . $paygatedottocryptogateway_domain . '/' . ltrim($paygatedottocryptogateway_path, '/');
+
+    if (!empty($paygatedottocryptogateway_args)) {
+        $paygatedottocryptogateway_url = add_query_arg(array_map('rawurlencode', array_map('strval', $paygatedottocryptogateway_args)), $paygatedottocryptogateway_url);
+    }
+
+    return esc_url_raw($paygatedottocryptogateway_url);
+}
 
 		include_once(plugin_dir_path(__FILE__) . 'includes/paygatedottocryptogateway-callback-signature.php'); // PayGate callback signature verification (loads before the gateways)
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-dynamic.php'); // Dynamic individual-coin gateway (replaces the per-coin files)
