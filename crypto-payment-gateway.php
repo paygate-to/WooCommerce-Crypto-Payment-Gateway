@@ -3,12 +3,12 @@
  * Plugin Name: Crypto Payment Gateway with Instant Payouts
  * Plugin URI: https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/
  * Description: Cryptocurrency Payment Gateway with instant payouts to your wallet and without KYC hosted directly on your website.
- * Version: 1.2.1
+ * Version: 1.2.2
  * Requires Plugins: woocommerce
  * Requires at least: 5.8
- * Tested up to: 7.1.2
+ * Tested up to: 7.1.3
  * WC requires at least: 5.8
- * WC tested up to: 11.1.2
+ * WC tested up to: 11.2.1
  * Requires PHP: 7.2
  * Author: PayGate.to
  * Author URI: https://paygate.to/
@@ -208,6 +208,63 @@ function paygatedottocryptogateway_api_url($paygatedottocryptogateway_domain, $p
     return esc_url_raw($paygatedottocryptogateway_url);
 }
 
+/**
+ * Admin notice: while an enabled PayGate gateway still uses the shared api.paygate.to,
+ * point the store manager to a free dedicated API endpoint. Dismissed per user.
+ */
+function paygatedottocryptogateway_endpoint_notice() {
+    if (!current_user_can('manage_woocommerce') || get_user_meta(get_current_user_id(), 'paygatedottocryptogateway_endpoint_notice_dismissed', true)) {
+        return;
+    }
+
+    $paygatedottocryptogateway_gateways = array(
+        'paygatedotto-crypto-payment-gateway-dynamic'   => 'dynamic_custom_api_domain',
+        'paygatedotto-crypto-payment-gateway-multicoin' => 'multicoin_custom_api_domain',
+    );
+    $paygatedottocryptogateway_section = '';
+    foreach ($paygatedottocryptogateway_gateways as $paygatedottocryptogateway_id => $paygatedottocryptogateway_key) {
+        $paygatedottocryptogateway_settings = get_option('woocommerce_' . $paygatedottocryptogateway_id . '_settings', array());
+        if (is_array($paygatedottocryptogateway_settings) && isset($paygatedottocryptogateway_settings['enabled']) && 'yes' === $paygatedottocryptogateway_settings['enabled']
+            && PAYGATEDOTTOCRYPTOGATEWAY_DEFAULT_API_DOMAIN === paygatedottocryptogateway_get_api_domain($paygatedottocryptogateway_id, $paygatedottocryptogateway_key)) {
+            $paygatedottocryptogateway_section = $paygatedottocryptogateway_id;
+            break;
+        }
+    }
+    if ('' === $paygatedottocryptogateway_section) {
+        return;
+    }
+
+    $paygatedottocryptogateway_guide_url    = 'https://paygate.to/white-label-api-custom-domain-guide/#dedicated-endpoint';
+    $paygatedottocryptogateway_settings_url = admin_url('admin.php?page=wc-settings&tab=checkout&section=' . $paygatedottocryptogateway_section);
+    $paygatedottocryptogateway_dismiss_url  = wp_nonce_url(add_query_arg('paygatedottocryptogateway_dismiss_endpoint_notice', '1'), 'paygatedottocryptogateway_dismiss_endpoint_notice');
+
+    echo '<div class="notice notice-info"><p><strong>' . esc_html__('PayGate: protect your payments with a dedicated API endpoint.', 'crypto-payment-gateway') . '</strong> '
+        . esc_html__('Your store still uses the shared api.paygate.to. A free DDoS-protected endpoint of your own keeps your payments running when the shared address is under attack.', 'crypto-payment-gateway') . '</p><p>'
+        . sprintf(
+            /* translators: 1: "Get your dedicated endpoint" link, 2: "Custom API Domain" field name, 3: "PayGate settings" link */
+            esc_html__('%1$s (about one minute), then paste it into %2$s in %3$s.', 'crypto-payment-gateway'),
+            '<a href="' . esc_url($paygatedottocryptogateway_guide_url) . '" target="_blank" rel="noopener noreferrer">' . esc_html__('Get your dedicated endpoint', 'crypto-payment-gateway') . '</a>',
+            '<strong>' . esc_html__('Custom API Domain', 'crypto-payment-gateway') . '</strong>',
+            '<a href="' . esc_url($paygatedottocryptogateway_settings_url) . '">' . esc_html__('PayGate settings', 'crypto-payment-gateway') . '</a>'
+        )
+        . ' <a href="' . esc_url($paygatedottocryptogateway_dismiss_url) . '">' . esc_html__('Dismiss', 'crypto-payment-gateway') . '</a></p></div>';
+}
+add_action('admin_notices', 'paygatedottocryptogateway_endpoint_notice');
+
+/**
+ * Remember that the current user dismissed the dedicated endpoint notice.
+ */
+function paygatedottocryptogateway_dismiss_endpoint_notice() {
+    if (!isset($_GET['paygatedottocryptogateway_dismiss_endpoint_notice']) || !current_user_can('manage_woocommerce')) {
+        return;
+    }
+    check_admin_referer('paygatedottocryptogateway_dismiss_endpoint_notice');
+    update_user_meta(get_current_user_id(), 'paygatedottocryptogateway_endpoint_notice_dismissed', 1);
+    wp_safe_redirect(remove_query_arg(array('paygatedottocryptogateway_dismiss_endpoint_notice', '_wpnonce')));
+    exit;
+}
+add_action('admin_init', 'paygatedottocryptogateway_dismiss_endpoint_notice');
+
 		include_once(plugin_dir_path(__FILE__) . 'includes/paygatedottocryptogateway-callback-signature.php'); // PayGate callback signature verification (loads before the gateways)
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-dynamic.php'); // Dynamic individual-coin gateway (replaces the per-coin files)
 		include_once(plugin_dir_path(__FILE__) . 'includes/class-paygatedotto-crypto-payment-gateway-multicoin.php');
@@ -267,7 +324,20 @@ function paygatedottocryptogateway_record_order_session($order)
 }
 add_action('woocommerce_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
 add_action('woocommerce_store_api_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
-add_action('woocommerce_blocks_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
+
+/**
+ * Older WooCommerce versions (before 7.0) may not fire the Store API action above for
+ * block checkout, so also listen to the legacy Blocks action there. It is deprecated
+ * since WooCommerce Blocks 7.2.0 and logs a notice on current versions, so it is only
+ * hooked on those older versions.
+ */
+function paygatedottocryptogateway_hook_legacy_blocks_order_processed()
+{
+    if (defined('WC_VERSION') && version_compare(WC_VERSION, '7.0', '<')) {
+        add_action('woocommerce_blocks_checkout_order_processed', 'paygatedottocryptogateway_record_order_session', 20, 1);
+    }
+}
+add_action('plugins_loaded', 'paygatedottocryptogateway_hook_legacy_blocks_order_processed');
 
 /**
  * Empty the cart belonging to a specific WooCommerce session key.
