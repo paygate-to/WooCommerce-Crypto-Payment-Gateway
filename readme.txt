@@ -26,7 +26,7 @@ Accept crypto payments directly on your WooCommerce website, each order is assig
 * QR code shown on your own site for easy customer payments.
 * Automatic payment detection.
 * If the customer made a mistake sending to the wrong token or sending through the wrong network our system will still forward the crypto to you automatically for all supported tokens across all chains.
-* 1.5% flat rate fee + blockchain fees.
+* 1% flat rate fee + blockchain fees.
 * Automatic order processing (order will be marked as paid automatically after payment).
 * Track TXID and payouts from wp-admin
 * You can accept payments worldwide without restrictions due to the decentralized nature of how cryptocurrencies work.

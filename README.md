@@ -14,7 +14,7 @@ Cryptocurrency Payment Gateway with instant payouts to your wallet and without K
 - Choose who pays the blockchain fee: you or the customer.
 - If a customer sends the wrong token or uses the wrong network, supported tokens are still forwarded to you automatically.
 - Works with your own checkout domain and a free dedicated API endpoint ([custom domain guide](https://paygate.to/white-label-api-custom-domain-guide/)).
-- Fees: **1.5% flat rate + blockchain fees**.
+- Fees: **1% flat rate + blockchain fees**.
 
 📘 **Step-by-step guide with screenshots:** [https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/woocommerce/](https://paygate.to/crypto-payment-gateway-no-kyc-instant-payouts/woocommerce/)
 
